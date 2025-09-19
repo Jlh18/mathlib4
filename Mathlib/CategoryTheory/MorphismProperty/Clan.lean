@@ -1,4 +1,4 @@
-import Mathlib.CategoryTheory.MorphismProperty.Limits
+import Mathlib.CategoryTheory.MorphismProperty.OverAdjunction
 
 universe v u
 
@@ -12,11 +12,17 @@ variable {C : Type u} [Category.{v} C]
 
 section
 
-variable (P : MorphismProperty C)
+-- clans (minus the condition that all objects are fibrant)
+variable (P : MorphismProperty C) [P.IsomorphismsLe] [P.IsStableUnderComposition]
+  [P.IsStableUnderBaseChange]
 
+
+-- π-clans
+variable [P.IsClosedUnderPushforward]
 
 
 end
+
 
 end MorphismProperty
 end CategoryTheory

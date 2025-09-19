@@ -216,15 +216,11 @@ def epimorphisms : MorphismProperty C := fun _ _ f => Epi f
 
 section
 
+variable {C}
+
 /-- A morphism property `P` contains all isomorphisms. -/
 class IsomorphismsLe (P : MorphismProperty C) : Prop where
   isomorphisms_le : isomorphisms C ≤ P
-
-end
-
-section
-
-variable {C}
 
 /-- `P` respects isomorphisms, if it respects the morphism property `isomorphisms C`, i.e.
 it is stable under pre- and postcomposition with isomorphisms. -/
