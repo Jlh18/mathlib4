@@ -860,6 +860,11 @@ instance [HasPullbacks C] : P.HasPullbacks where
 
 alias hasPullback := HasPullbacks.hasPullback
 
+/-- A morphism property satisfies `ContainsObjects` if any map `! : X ⟶ Y` to a terminal
+object `Y` satisfies the morphism property. -/
+class HasObjects (P : MorphismProperty C) : Prop where
+  obj_mem {X Y} (f : X ⟶ Y) : Limits.IsTerminal Y → P f
+
 end MorphismProperty
 
 end CategoryTheory
