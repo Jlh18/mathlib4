@@ -222,6 +222,13 @@ variable {C}
 class IsomorphismsLe (P : MorphismProperty C) : Prop where
   isomorphisms_le : isomorphisms C ≤ P
 
+lemma isomorphisms_le (P : MorphismProperty C) [IsomorphismsLe P] {X Y} (f : X ⟶ Y) [IsIso f] :
+    P f := by
+  have : isomorphisms C ≤ P := IsomorphismsLe.isomorphisms_le
+  simp only [MorphismProperty.le_def, isomorphisms] at this
+  apply this
+  assumption
+
 /-- `P` respects isomorphisms, if it respects the morphism property `isomorphisms C`, i.e.
 it is stable under pre- and postcomposition with isomorphisms. -/
 abbrev RespectsIso (P : MorphismProperty C) : Prop := P.Respects (isomorphisms C)
