@@ -99,13 +99,27 @@ lemma isomorphisms_le_pushouts
   exact ⟨A, B, p, p ≫ g, g ≫ f, hp, (IsPushout.of_id_snd (f := p ≫ g)).of_iso
     (Iso.refl _) (Iso.refl _) (asIso p) (asIso f) (by simp) (by simp) (by simp) (by simp)⟩
 
-notation E " ⟶("P") " B => { p : E ⟶ B // P p }
+notation E " ⟶("P") " B => (p : E ⟶ B) ×' P p
+
+/-- `P.HasPullback f` means that all morphisms satisfying morphism property `P`
+have pullbacks along `f`. -/
+protected class HasPullback {X Y : C} (f : X ⟶ Y) : Prop where
+  hasPullback {W} (g : W ⟶(P) Y) : HasPullback g.1 f := by infer_instance
+
+alias hasPullback := HasPullback.hasPullback
+
+instance {X Y : C} (f : X ⟶ Y) [P.HasPullback f] {W : C} (g : W ⟶(P) Y) : HasPullback g.1 f :=
+  hasPullback g
+
+instance {X Y : C} (f : X ⟶ Y) [∀ {W : C} (h : W ⟶(P) Y), HasPullback h.1 f] :
+    P.HasPullback f where
+  hasPullback := inferInstance
 
 /-- A morphism property is `IsStableUnderBaseChange` if the base change of such a morphism
 still falls in the class. -/
 class IsStableUnderBaseChange : Prop where
   of_isPullback {X Y Y' S : C} {f : X ⟶ S} (g : Y ⟶(P) S) {f' : Y' ⟶ Y} {g' : Y' ⟶ X}
-    (sq : IsPullback f' g' g f) : P g'
+    (sq : IsPullback f' g' g.1 f) : P g'
 
 instance : P.pullbacks.IsStableUnderBaseChange where
   of_isPullback := by
@@ -129,9 +143,23 @@ lemma of_isPullback [P.IsStableUnderBaseChange]
     (sq : IsPullback f' g' g f) (hg : P g) : P g' :=
   IsStableUnderBaseChange.of_isPullback ⟨g, hg⟩ sq
 
+-- instance [P.IsStableUnderBaseChange] {X Y Z : C} (f : X ⟶ Y) (g : Y ⟶ Z)
+--     [∀ {W : C} (h : W ⟶(P) Y), HasPullback h.1 f] [∀ {W : C} (h : W ⟶(P) Z), HasPullback h.1 g]
+--     {W : C} (h : W ⟶(P) Z) : HasPullback h.1 (f ≫ g) :=
+--   IsPullback.hasPullback
+--     (IsPullback.paste_horiz (IsPullback.of_hasPullback
+--     (⟨ (pullback.snd h.1 g) , of_isPullback (IsPullback.of_hasPullback h.1 g) h.2 ⟩
+--     : (pullback h.1 g) ⟶(P) Y).1 f)
+--     (IsPullback.of_hasPullback h.1 g))
+
+-- instance [P.IsStableUnderBaseChange] {X Y Z : C} (f : X ⟶ Y) (g : Y ⟶ Z)
+--     [P.HasPullback f] [P.HasPullback g] : P.HasPullback (f ≫ g) where
+--   hasPullback := inferInstance
+
 instance [P.IsStableUnderBaseChange] {X Y Z : C} (f : X ⟶ Y) (g : Y ⟶ Z)
-    [∀ {W : C} (h : W ⟶(P) Y), HasPullback h.1 f] [∀ {W : C} (h : W ⟶(P) Z), HasPullback h.1 g]
-    {W : C} (h : W ⟶(P) Z) : HasPullback h.1 (f ≫ g) :=
+    [P.HasPullback f] [P.HasPullback g] : P.HasPullback (f ≫ g) where
+  hasPullback h :=
+  have {W : C} (h : W ⟶(P) Y) : HasPullback h.1 f := inferInstance
   IsPullback.hasPullback
     (IsPullback.paste_horiz (IsPullback.of_hasPullback
     (⟨ (pullback.snd h.1 g) , of_isPullback (IsPullback.of_hasPullback h.1 g) h.2 ⟩
@@ -202,6 +230,13 @@ theorem pullback_snd [IsStableUnderBaseChange P]
     P (pullback.snd f g) :=
   of_isPullback (IsPullback.of_hasPullback f g) H
 
+instance [P.IsStableUnderBaseChange] {X Y Z}
+    (f : X ⟶ Y) (g : Y ⟶ Z) [P.HasPullback f] [P.HasPullback g] {W} (h : W ⟶(P) Z) :
+    HasPullback (pullback.snd h.1 g) f :=
+  let p : pullback h.1 g ⟶(P) Y := ⟨pullback.snd h.1 g, pullback_snd _ _ h.2⟩
+  have {W} (h : W ⟶(P) Y) : HasPullback h.1 f := inferInstance
+  inferInstanceAs (HasPullback p.1 f)
+
 theorem baseChange_obj [IsStableUnderBaseChange P] {S S' : C} (f : S' ⟶ S)
     (X : Over S) (H : P X.hom) [HasPullback X.hom f] :
     P (pullback.snd X.hom f) :=
@@ -216,12 +251,17 @@ theorem baseChange_map [IsStableUnderBaseChange P] {S S' : C} (f : S' ⟶ S)
   refine IsPullback.of_bot ?_ (by simp) (IsPullback.of_hasPullback Y.hom f)
   simpa using IsPullback.of_hasPullback X.hom f
 
-theorem pullback_map [HasPullbacks C]
-    [IsStableUnderBaseChange P] [P.IsStableUnderComposition] {S X X' Y Y' : C} {f : X ⟶ S}
-    {g : Y ⟶ S} {f' : X' ⟶ S} {g' : Y' ⟶ S} {i₁ : X ⟶ X'} {i₂ : Y ⟶ Y'} (h₁ : P i₁) (h₂ : P i₂)
+theorem pullback_map
+    [IsStableUnderBaseChange P] [P.IsStableUnderComposition] {S X X' Y Y' : C}
+    {f : X ⟶ S} {g : Y ⟶ S} [∀ {W} (h : W ⟶ S), HasPullback f h]
+    {f' : X' ⟶ S} {g' : Y' ⟶ S} [∀ {W} (h : W ⟶ S), HasPullback h g']
+    {i₁ : X ⟶ X'} {i₂ : Y ⟶ Y'} (h₁ : P i₁) (h₂ : P i₂)
     (e₁ : f = i₁ ≫ f') (e₂ : g = i₂ ≫ g') :
     P (pullback.map f g f' g' i₁ i₂ (𝟙 _) ((Category.comp_id _).trans e₁)
         ((Category.comp_id _).trans e₂)) := by
+  have inst {W} (h : W ⟶ _): HasPullback h f := hasPullback_symmetry _ _
+  have inst {W} (h : W ⟶ _): HasPullback (Over.mk f).hom h := inferInstanceAs (HasPullback f h)
+  have inst {W} (h : W ⟶ _): HasPullback h (Over.mk f).hom := hasPullback_symmetry _ _
   have :
     pullback.map f g f' g' i₁ i₂ (𝟙 _) ((Category.comp_id _).trans e₁)
         ((Category.comp_id _).trans e₂) =
@@ -860,14 +900,14 @@ end Universally
 variable (P : MorphismProperty C)
 
 protected class HasPullbacks : Prop where
-  hasPullback {X Y S : C} {f : X ⟶(P) S} (g : Y ⟶ S) : HasPullback f.1 g := by infer_instance
+  hasPullbacks {X Y : C} (f : X ⟶ Y) : P.HasPullback f := by infer_instance
 
-instance [P.HasPullbacks] {X Y S : C} {f : X ⟶(P) S} (g : Y ⟶ S) : HasPullback f.1 g :=
-  HasPullbacks.hasPullback g
+instance [P.HasPullbacks] {X Y : C} (f : X ⟶ Y) : P.HasPullback f :=
+  HasPullbacks.hasPullbacks f
 
 instance [HasPullbacks C] : P.HasPullbacks where
 
-alias hasPullback := HasPullbacks.hasPullback
+alias hasPullbacks := HasPullbacks.hasPullbacks
 
 /-- A morphism property satisfies `ContainsObjects` if any map `! : X ⟶ Y` to a terminal
 object `Y` satisfies the morphism property. -/

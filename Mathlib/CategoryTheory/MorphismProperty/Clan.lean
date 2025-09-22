@@ -1,4 +1,12 @@
+/-
+Copyright (c) 2025 Joseph Hua. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Joseph Hua, Sina Hazratpour, Emily Riehl
+-/
+
 import Mathlib.CategoryTheory.MorphismProperty.OverAdjunction
+import Mathlib.CategoryTheory.Functor.TwoSquare
+import Mathlib.CategoryTheory.NatTrans.IsCartesian
 
 universe v u
 
@@ -6,15 +14,21 @@ noncomputable section
 
 namespace CategoryTheory
 
-open Category Limits MorphismProperty MorphismProperty.Over
+open Category Limits MorphismProperty
 
 variable {C : Type u} [Category.{v} C]
 
 namespace MorphismProperty
 
+variable (P : MorphismProperty C)
+
+abbrev OverTop (X : C) := P.Over ⊤ X
+
+namespace OverTop
+
 @[simps]
-def Over.equivalenceOfHasObjects' (R : MorphismProperty C) [R.HasObjects]
-    {X : C} (hX : IsTerminal X) : R.Over ⊤ X ≌ Over X where
+def equivalenceOfHasObjects' (R : MorphismProperty C) [R.HasObjects]
+    {X : C} (hX : IsTerminal X) : R.OverTop X ≌ Over X where
   functor := MorphismProperty.Over.forget _ _ _
   inverse := Comma.lift (𝟭 _) (by intro; apply HasObjects.obj_mem _ hX) (by simp) (by simp)
   unitIso := eqToIso rfl
@@ -22,53 +36,28 @@ def Over.equivalenceOfHasObjects' (R : MorphismProperty C) [R.HasObjects]
   functor_unitIso_comp := by simp
 
 @[simp]
-def Over.equivalenceOfHasObjects (R : MorphismProperty C) [R.HasObjects]
-    {X : C} (hX : IsTerminal X) : R.Over ⊤ X ≌ C :=
+def equivalenceOfHasObjects (R : MorphismProperty C) [R.HasObjects]
+    {X : C} (hX : IsTerminal X) : R.OverTop X ≌ C :=
   (equivalenceOfHasObjects' R hX).trans (Over.equivalenceOfIsTerminal hX)
 
-/-- A class of maps `P` that is stable under base change is also stable under pushforward
-if whenever pullbacks along `f` exist and `f` satisfies `P`,
-the pullback functor `Over.pullback P ⊤ f` is a left adjoint. -/
-class IsClosedUnderPushforward (P : MorphismProperty C) :
-    Prop extends P.IsStableUnderBaseChange where
-  pullback_isLeftAdjoint {X Y : C} (f : X ⟶(P) Y)
-  [∀ {W : C} (h : W ⟶(P) Y), HasPullback h.1 f.1] : (Over.pullback P ⊤ f.1).IsLeftAdjoint
+abbrev pullback (P : MorphismProperty C) [P.IsStableUnderBaseChange]
+    {E B} (f : E ⟶ B) [P.HasPullback f] := MorphismProperty.Over.pullback P ⊤ f
 
-instance (P : MorphismProperty C) [P.IsClosedUnderPushforward]
-    {X Y : C} (f : X ⟶(P) Y) [∀ {W : C} (h : W ⟶(P) Y), HasPullback h.1 f.1] :
-    (Over.pullback P ⊤ f.1).IsLeftAdjoint :=
-  IsClosedUnderPushforward.pullback_isLeftAdjoint f
+abbrev map {P : MorphismProperty C} [P.IsStableUnderComposition]
+    {X Y : C} {f : X ⟶ Y} (hPf : P f) :=
+  MorphismProperty.Over.map ⊤ hPf
 
-/-- A chosen right adjoint to the pullback functor. -/
-def Over.IsClosedUnderPushforward.pushforward
-    (P : MorphismProperty C) [P.IsClosedUnderPushforward]
-    {X Y : C} (f : X ⟶(P) Y) [∀ {W : C} (h : W ⟶(P) Y), HasPullback h.1 f.1] :
-    P.Over ⊤ X ⥤ P.Over ⊤ Y :=
-  (Over.pullback P ⊤ f.1).rightAdjoint
-
-end MorphismProperty
-
-/-- `P : UvPoly C` is a polynomial functors in a single variable -/
-structure MvPoly (R : MorphismProperty C) [hR : R.HasPullbacks] [R.IsStableUnderBaseChange]
-    (I O E B : C) where
-  (i : E ⟶(R) I)
-  (p : E ⟶(R) B)
-  (exp : (MorphismProperty.Over.pullback R ⊤ p.1).IsLeftAdjoint)
-  (o : B ⟶(R) O)
-
-namespace MvPoly
-
-variable {R : MorphismProperty C} {E B : C}
+variable {P : MorphismProperty C} {E B : C}
 
 @[simps]
-def Over.mk (p : E ⟶(R) B) : R.Over ⊤ B where
+def mk (p : E ⟶(P) B) : P.OverTop B where
   left := E
   right := ⟨⟨⟩⟩
   hom := p.1
   prop := p.2
 
 @[simps]
-def Over.homMk {p q : R.Over ⊤ B} (left : p.left ⟶ q.left) (hleft : left ≫ q.hom = p.hom) :
+def homMk {p q : P.OverTop B} (left : p.left ⟶ q.left) (hleft : left ≫ q.hom = p.hom) :
     p ⟶ q where
   left := left
   right := eqToHom (by simp)
@@ -76,38 +65,8 @@ def Over.homMk {p q : R.Over ⊤ B} (left : p.left ⟶ q.left) (hleft : left ≫
   prop_hom_left := trivial
   prop_hom_right := trivial
 
-variable [R.IsStableUnderComposition] [R.HasPullbacks] [R.IsStableUnderBaseChange]
-
-instance (p : E ⟶(R) B) {W : C} (h : W ⟶ B) : HasPullback h p.1 :=
-  hasPullback_symmetry _ _
-
-instance : (⊤ : MorphismProperty C).HasOfPostcompProperty ⊤ where
-  of_postcomp := by simp
-
-instance (p : E ⟶(R) B) : (MorphismProperty.Over.pullback R ⊤ p.1).IsRightAdjoint :=
-  (mapPullbackAdj R ⊤ p.1 p.2 ⟨⟩).isRightAdjoint
-
-instance (p : E ⟶(R) B) (exp : (MorphismProperty.Over.pullback R ⊤ p.1).IsLeftAdjoint) :
-    (Over.pushforward R p.1 exp).IsRightAdjoint := by
-  dsimp [Over.pushforward]
-  infer_instance
-
-variable {I O E B : C}
-
-def functor (P : MvPoly R I O E B) :
-    R.Over ⊤ I ⥤ R.Over ⊤ O :=
-  pullback R ⊤ P.i.1 ⋙
-  Over.pushforward R P.p.1 P.exp ⋙
-  map ⊤ P.o.2
-
-/-- The action of a univariate polynomial on objects. -/
-def apply (P : MvPoly R I O E B) : R.Over ⊤ I → R.Over ⊤ O := (functor P).obj
-
-@[inherit_doc]
-infix:90 " @ " => apply
-
 /--
-Convert an object `p` in `R.Over ⊤ B` to a morphism in `R.Over ⊤ O` by composing with `o`.
+Convert an object `p` in `R.OverTop B` to a morphism in `R.OverTop O` by composing with `o`.
      p
  E -----> B
   \      /
@@ -117,21 +76,177 @@ Convert an object `p` in `R.Over ⊤ B` to a morphism in `R.Over ⊤ O` by compo
      O
 -/
 @[simp]
-def Over.drop (p : R.Over ⊤ B) (o : B ⟶(R) O) :
-    (map ⊤ o.2).obj p ⟶ Over.mk o :=
+def homOfMorphismProperty [P.IsStableUnderComposition] {O} (p : P.OverTop B) (o : B ⟶(P) O) :
+    (map o.2).obj p ⟶ OverTop.mk o :=
   Over.homMk p.hom (by simp)
 
-/-- The first projection morphism from `P @ X = ∑ b : B, X ^ (E b)` to `B`,
-where `o` is represented by its domain `B` and `i` is represented by its domain `E`. -/
-def fstProj (P : MvPoly R I O E B) (X : R.Over ⊤ I) : P @ X ⟶ Over.mk P.o :=
-  Over.drop ((MorphismProperty.Over.pullback R ⊤ P.i.1 ⋙
-    Over.pushforward R P.p.1 P.exp).obj X) P.o
+end OverTop
+
+
+open OverTop
+
+/-- A class of maps `P` that is stable under base change is also stable under pushforward
+if whenever pullbacks of maps in `P` along `f` exist,
+the pullback functor `Over.pullback P ⊤ f` is a left adjoint. -/
+class IsStableUnderPushforward : Prop extends P.IsStableUnderBaseChange where
+  pullback_isLeftAdjoint {X Y : C} (f : X ⟶ Y) [P.HasPullback f] :
+  (pullback P f).IsLeftAdjoint
+
+/-- A chosen right adjoint to the pullback functor. -/
+noncomputable def OverTop.pushforward [P.IsStableUnderBaseChange]
+    {X Y : C} (f : X ⟶ Y) [P.HasPullback f]
+    (hf : (MorphismProperty.Over.pullback P ⊤ f).IsLeftAdjoint) :
+    P.OverTop X ⥤ P.OverTop Y :=
+  (pullback P f).rightAdjoint
+
+abbrev Exponentiable (P : MorphismProperty C) [P.IsStableUnderBaseChange]
+    {E B} (f : E ⟶ B) [P.HasPullback f] :=
+  (pullback P f).IsLeftAdjoint
+
+section Exponentiable
+
+variable (P : MorphismProperty C) [P.IsStableUnderBaseChange] {X Y : C} (f : X ⟶ Y)
+    [P.HasPullback f] [P.Exponentiable f]
+
+/-- A chosen right adjoint to the pullback functor. -/
+def pushforward : P.OverTop X ⥤ P.OverTop Y :=
+  (pullback P f).rightAdjoint
+
+/-- The `pullback ⊣ pushforward` adjunction. -/
+def pullbackPushforwardAdjunction : Over.pullback P ⊤ f ⊣ pushforward P f :=
+  Adjunction.ofIsLeftAdjoint (pullback P f)
+
+/-- The dependent evaluation natural transformation as the counit of the adjunction. -/
+abbrev ev : pushforward P f ⋙ pullback P f ⟶ 𝟭 _ :=
+  pullbackPushforwardAdjunction P f |>.counit
+
+end Exponentiable
+
+/-- A class of maps `P` that is stable under base change is also stable under pushforward
+if whenever pullbacks along `f` exist and `f` satisfies `P`,
+the pullback functor `pullback P f` is a left adjoint.
+
+Note that this alone does not assert existence of pushforwards of all `P`-maps along `P`-maps.
+By also assuming `[P.HasPullbacks]` one can deduce existence of pushforwards of all
+`P`-maps along `P`-maps.
+-/
+class IsClosedUnderPushforward (P : MorphismProperty C) :
+    Prop extends P.IsStableUnderBaseChange where
+  pullback_isLeftAdjoint {X Y : C} (f : X ⟶(P) Y) [P.HasPullback f.1] :
+  P.Exponentiable f.1
+
+instance (P : MorphismProperty C) [P.IsClosedUnderPushforward]
+    {X Y : C} (f : X ⟶(P) Y) [P.HasPullback f.1] : P.Exponentiable f.1 :=
+  IsClosedUnderPushforward.pullback_isLeftAdjoint f
+
+/-- A chosen right adjoint to the pullback functor. -/
+def IsClosedUnderPushforward.pushforward (P : MorphismProperty C) [P.IsClosedUnderPushforward]
+    {X Y : C} (f : X ⟶(P) Y) [P.HasPullback f.1] : P.OverTop X ⥤ P.OverTop Y :=
+  (pullback P f.1).rightAdjoint
+
+end MorphismProperty
+
+open OverTop
+
+/-- `P : MvPoly C` is a multivariate polynomial functor
+         p
+      E ---> B
+  i ↙         ↘ o
+  I               O
+
+We can lazily read this as `∑ b : B, X ^ (E b)`,
+for some `X` in the (`P`-restricted) slice over `I`.
+
+In full detail:
+Viewing such an `X` as a series of variables `X_k` indexed by `k ∈ I`,
+and `B` as a family of types `B_k` indexed by `j ∈ O`
+this can be further viewed as `O`-many `I`-ary polynomials `∑ b : B_j, X_(i b) ^ (E b)`
+-/
+structure MvPoly (R : MorphismProperty C) [R.HasPullbacks] [R.IsStableUnderBaseChange]
+    (I O E B : C) where
+  (i : E ⟶(R) I)
+  (p : E ⟶(R) B)
+  (exp : R.Exponentiable p.1 := by infer_instance)
+  (o : B ⟶(R) O)
+
+namespace MvPoly
+
+variable {R : MorphismProperty C}
+variable [R.IsStableUnderComposition] [R.HasPullbacks] [R.IsStableUnderBaseChange]
+variable {E B : C}
+
+instance : (⊤ : MorphismProperty C).HasOfPostcompProperty ⊤ where
+  of_postcomp := by simp
+
+instance (p : E ⟶(R) B) : (pullback R p.1).IsRightAdjoint :=
+  (MorphismProperty.Over.mapPullbackAdj R ⊤ p.1 p.2 ⟨⟩).isRightAdjoint
+
+instance (p : E ⟶(R) B) (exp : (pullback R p.1).IsLeftAdjoint) :
+    (pushforward R p.1 exp).IsRightAdjoint := by
+  dsimp [OverTop.pushforward]
+  infer_instance
+
+variable {I O E B : C} (P : MvPoly R I O E B)
+
+instance : R.Exponentiable P.p.fst := P.exp
+
+def functor (P : MvPoly R I O E B) :
+    R.OverTop I ⥤ R.OverTop O :=
+  pullback R P.i.1 ⋙ pushforward R P.p.1 P.exp ⋙ map P.o.2
+
+/-- The action of a univariate polynomial on objects. -/
+def apply (P : MvPoly R I O E B) : R.OverTop I → R.OverTop O := (functor P).obj
+
+@[inherit_doc]
+infix:90 " @ " => apply
+
+/-- (Ignoring the indexing from `i` and `o`)
+This is the first projection morphism from `P @ X = ∑ b : B, X ^ (E b)` to `B`,
+as an object in the `P`-restricted slice over `B`. -/
+abbrev fstProj' (P : MvPoly R I O E B) (X : R.OverTop I) : R.OverTop B :=
+  (pullback R P.i.1 ⋙ pushforward R P.p.1 P.exp).obj X
+
+/-- This is the first projection morphism from `P @ X = ∑ b : B, X ^ (E b)` to `B`,
+as a morphism in the `P`-restricted slice over `O`. -/
+def fstProj (P : MvPoly R I O E B) (X : R.OverTop I) : P @ X ⟶ OverTop.mk P.o :=
+  OverTop.homOfMorphismProperty (fstProj' P X) P.o
 
 @[reassoc (attr := simp)]
-lemma map_fstProj (P : MvPoly R I O E B) {X Y : R.Over ⊤ I} (f : X ⟶ Y) :
+lemma map_fstProj (P : MvPoly R I O E B) {X Y : R.OverTop I} (f : X ⟶ Y) :
     (functor P).map f ≫ fstProj P Y = fstProj P X := by
   ext
   simp [fstProj, functor]
+
+/--
+The two right adjoints compose to give a new right adjoint
+`pullback R P.i.1 ⋙ pushforward R P.p.1 P.exp`.
+`rightAdjunction` is said adjunction `pullback p ⋙ map i ⊣ pullback i ⋙ pushforward p`.
+-/
+def rightAdjunction : pullback R P.p.1 ⋙ OverTop.map P.i.2
+    ⊣ pullback R P.i.1 ⋙ pushforward R P.p.1 P.exp :=
+  Adjunction.comp (Adjunction.ofIsLeftAdjoint (pullback R P.p.fst))
+    (MorphismProperty.Over.mapPullbackAdj R ⊤ P.i.fst _ trivial)
+
+/-- The counit of the adjunction `pullback p ⋙ map i ⊣ pullback i ⋙ pushforward p` evaluated at `X`.
+Ignoring the indexing from `i` and `o`,
+this can be viewed as the second projection morphism from `P @ X = ∑ b : B, X ^ (E b)`
+to `X^ (E b)`.
+-/
+def sndProj (P : MvPoly R I O E B) (X : R.OverTop I) :
+    (pullback R P.p.1 ⋙ map P.i.2).obj (fstProj' P X) ⟶ X :=
+  (rightAdjunction P).counit.app X
+
+namespace Equiv
+
+variable (P : MvPoly R I O E B)
+
+def fst {Γ} {X} (pair : Γ ⟶ P @ X) : R.OverTop B := by
+  have := (pair ≫ fstProj P X).left
+  dsimp at this
+  refine OverTop.mk ⟨ (pair ≫ fstProj P X).left , ?_ ⟩
+  sorry
+
+end Equiv
 
 instance {I O E B : C} (P : MvPoly R I O E B) : Limits.PreservesLimitsOfShape WalkingCospan
     (MorphismProperty.Over.map ⊤ P.o.2) := by sorry
@@ -146,7 +261,7 @@ end MvPoly
 structure UvPoly (R : MorphismProperty C) [R.HasPullbacks] [R.IsStableUnderBaseChange]
     (E B : C) where
   (p : E ⟶(R) B)
-  (exp : (MorphismProperty.Over.pullback R ⊤ p.1).IsLeftAdjoint)
+  (exp : (MorphismProperty.Over.pullback R ⊤ p.1).IsLeftAdjoint := by infer_instance)
 
 namespace UvPoly
 
@@ -157,8 +272,6 @@ variable {R : MorphismProperty C} {E B : C}
 variable [HasTerminal C]
 
 variable [R.IsStableUnderComposition] [R.HasPullbacks] [R.IsStableUnderBaseChange] [R.HasObjects]
--- ∧ [R.IsomorphismsLe] = clan
--- clan ∧ [R.IsClosedUnderPushforward] = π-clan
 
 /-- Given a π-clan `R`, any `R`-map is a signature for a polynomial functor. -/
 def ofIsClosedUnderPushforward [R.IsClosedUnderPushforward] (p : E ⟶(R) B) : UvPoly R E B where
@@ -209,7 +322,8 @@ lemma map_fstProj (P : UvPoly R E B) {X Y : C} (f : X ⟶ Y) :
   simp only [fstProj, functor, Functor.comp_map, ← Functor.map_comp]
   simp
 
-#exit
+open TwoSquare
+
 /-- A vertical map `ρ : P.p ⟶ Q.p` of polynomials (i.e. a commutative triangle)
 ```
     ρ
@@ -230,13 +344,13 @@ C --- >  C/E ---->  C/B ----> C
               P.p
 ```
 -/
-def verticalNatTrans {F : C} (P : UvPoly E B) (Q : UvPoly F B) (ρ : E ⟶ F) (h : P.p = ρ ≫ Q.p) :
-    Q.functor ⟶ P.functor := by
-  have sq : CommSq ρ P.p Q.p (𝟙 _) := by simp [h]
-  let cellLeft := (Over.starPullbackIsoStar ρ).hom
-  let cellMid := (pushforwardPullbackTwoSquare ρ P.p Q.p (𝟙 _) sq)
-  let cellLeftMidPasted := TwoSquare.whiskerRight (cellLeft ≫ₕ cellMid) (Over.pullbackId).inv
-  simpa using (cellLeftMidPasted ≫ₕ (vId (forget B)))
+def verticalNatTrans {F : C} (P : UvPoly R E B) (Q : UvPoly R F B) (ρ : E ⟶ F)
+    (h : P.p.1 = ρ ≫ Q.p.1) : Q.functor ⟶ P.functor := sorry --by
+  -- have sq : CommSq ρ P.p.1 Q.p.1 (𝟙 _) := by simp [h]
+  -- let cellLeft := (Over.starPullbackIsoStar ρ).hom
+  -- let cellMid := (pushforwardPullbackTwoSquare ρ P.p Q.p (𝟙 _) sq)
+  -- let cellLeftMidPasted := TwoSquare.whiskerRight (cellLeft ≫ₕ cellMid) (Over.pullbackId).inv
+  -- simpa using (cellLeftMidPasted ≫ₕ (vId (forget B)))
 
 /-- A cartesian map of polynomials
 ```
@@ -260,24 +374,28 @@ C --- >  C/E ---->  C/B ----> C
               P.p
 ```
 -/
-def cartesianNatTrans {D F : C} (P : UvPoly E B) (Q : UvPoly F D)
-    (δ : B ⟶ D) (φ : E ⟶ F) (pb : IsPullback P.p φ δ Q.p) : P.functor ⟶ Q.functor :=
-  let cellLeft : TwoSquare (𝟭 C) (Over.star F) (Over.star E) (pullback φ) :=
-    (Over.starPullbackIsoStar φ).inv
-  let cellMid :  TwoSquare (pullback φ) (pushforward Q.p) (pushforward P.p) (pullback δ) :=
-    (pushforwardPullbackIsoSquare pb.flip).inv
-  let cellRight : TwoSquare (pullback δ) (forget D) (forget B) (𝟭 C) :=
-    pullbackForgetTwoSquare δ
-  let := cellLeft ≫ᵥ cellMid ≫ᵥ cellRight
-  this
+def cartesianNatTrans {D F : C} (P : UvPoly R E B) (Q : UvPoly R F D)
+    (δ : B ⟶ D) (φ : E ⟶ F) (pb : IsPullback P.p.1 φ δ Q.p.1) : P.functor ⟶ Q.functor :=
+  sorry
+  -- let cellLeft : TwoSquare (𝟭 C) (Over.star F) (Over.star E) (pullback φ) :=
+  --   (Over.starPullbackIsoStar φ).inv
+  -- let cellMid :  TwoSquare (pullback φ) (pushforward Q.p) (pushforward P.p) (pullback δ) :=
+  --   (pushforwardPullbackIsoSquare pb.flip).inv
+  -- let cellRight : TwoSquare (pullback δ) (forget D) (forget B) (𝟭 C) :=
+  --   pullbackForgetTwoSquare δ
+  -- let := cellLeft ≫ᵥ cellMid ≫ᵥ cellRight
+  -- this
 
-open NatTrans in
-theorem isCartesian_cartesianNatTrans {D F : C} (P : UvPoly E B) (Q : UvPoly F D)
-    (δ : B ⟶ D) (φ : E ⟶ F) (pb : IsPullback P.p φ δ Q.p) :
-    NatTrans.IsCartesian (cartesianNatTrans P Q δ φ pb) :=
-  (isCartesian_of_isIso _).vComp <|
-  (isCartesian_of_isIso _).vComp <|
-  isCartesian_pullbackForgetTwoSquare _
+theorem isCartesian_cartesianNatTrans {D F : C} (P : UvPoly R E B) (Q : UvPoly R F D)
+    (δ : B ⟶ D) (φ : E ⟶ F) (pb : IsPullback P.p.1 φ δ Q.p.1) :
+    (cartesianNatTrans P Q δ φ pb).IsCartesian := by
+  sorry
+  -- simp [cartesianNatTrans]
+  -- infer_instance
+
+  -- (isCartesian_of_isIso _).vComp <|
+  -- (isCartesian_of_isIso _).vComp <|
+  -- isCartesian_pullbackForgetTwoSquare _
 
 /-- A morphism from a polynomial `P` to a polynomial `Q` is a pair of morphisms `e : E ⟶ E'`
 and `b : B ⟶ B'` such that the diagram
@@ -293,75 +411,31 @@ and `b : B ⟶ B'` such that the diagram
       F -- Q.p ->  D
 ```
 is a pullback square. -/
-structure Hom {F D : C} (P : UvPoly E B) (Q : UvPoly F D) where
+structure Hom {F D : C} (P : UvPoly R E B) (Q : UvPoly R F D) where
   Pb : C
   δ : B ⟶ D
   φ : Pb ⟶ F
   ψ : Pb ⟶ B
   ρ : Pb ⟶ E
-  is_pb : IsPullback ψ φ δ Q.p
-  w : ρ ≫ P.p = ψ
+  is_pb : IsPullback ψ φ δ Q.p.1
+  w : ρ ≫ P.p.1 = ψ
 
 namespace Hom
 
 open IsPullback
 
 /-- The identity morphism in the category of polynomials. -/
-def id (P : UvPoly E B) : Hom P P := ⟨E, 𝟙 B, 𝟙 _ , P.p , 𝟙 _, IsPullback.of_id_snd, by simp⟩
+def id (P : UvPoly R E B) : Hom P P := ⟨E, 𝟙 B, 𝟙 _ , P.p.1 , 𝟙 _, IsPullback.of_id_snd, by simp⟩
 
 -- def vertCartExchange
 
 /-- The composition of morphisms in the category of polynomials. -/
-def comp {E B F D N M : C} {P : UvPoly E B} {Q : UvPoly F D} {R : UvPoly N M}
+def comp {E B F D N M : C} {P : UvPoly R E B} {Q : UvPoly R F D} {R : UvPoly R N M}
     (f : Hom P Q) (g : Hom Q R) : Hom P R := sorry
 
 end Hom
 
-/-- Bundling up the the polynomials over different bases to form the underlying type of the
-category of polynomials. -/
-structure Total (C : Type*) [Category C] [HasPullbacks C] where
-  {E B : C}
-  (poly : UvPoly E B)
-
-def Total.of (P : UvPoly E B) : Total C := Total.mk P
-
-end UvPoly
-
 open UvPoly
-
-/-- The category of polynomial functors in a single variable. -/
-instance : Category (UvPoly.Total C) where
-  Hom P Q := UvPoly.Hom P.poly Q.poly
-  id P := UvPoly.Hom.id P.poly
-  comp := UvPoly.Hom.comp
-  id_comp := by
-    simp [UvPoly.Hom.comp]
-    sorry
-  comp_id := by
-    simp [UvPoly.Hom.comp]
-    sorry
-  assoc := by
-    simp [UvPoly.Hom.comp]
-
-def Total.ofHom {E' B' : C} (P : UvPoly E B) (Q : UvPoly E' B') (α : P.Hom Q) :
-    Total.of P ⟶ Total.of Q := sorry
-
-namespace UvPoly
-
-variable {C : Type u} [Category.{v} C] [HasTerminal C] [HasPullbacks C]
-
-instance : SMul C (Total C) where
-  smul S P := Total.of (smul S P.poly)
-
-/-- Scaling a polynomial `P` by an object `S` is isomorphic to the product of `const S` and the
-polynomial `P`. -/
-@[simps!]
-def smul_eq_prod_const [HasBinaryCoproducts C] [HasInitial C] (S : C) (P : Total C) :
-    S • P ≅ Total.of ((const S).prod P.poly) where
-  hom := sorry
-  inv := sorry
-  hom_inv_id := sorry
-  inv_hom_id := sorry
 
 variable {E B : C}
 
@@ -369,8 +443,9 @@ namespace PartialProduct
 
 open PartialProduct
 
+#exit
 /-- The counit of the adjunction `pullback P.p ⊣ pushforward P.p` evaluated `(star E).obj X`. -/
-def ε (P : UvPoly E B) (X : C) : pullback (P.fstProj X) P.p ⟶ E ⨯ X :=
+def ε (P : UvPoly R E B) (X : C) : Limits.pullback P.p.1 (P.fstProj X) ⟶ E ⨯ X :=
   ((ev P.p).app ((star E).obj X)).left
 
 /-- The partial product fan associated to a polynomial `P : UvPoly E B` and an object `X : C`. -/
