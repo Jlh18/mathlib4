@@ -26,34 +26,34 @@ def Over.equivalenceOfHasObjects (R : MorphismProperty C) [R.HasObjects]
     {X : C} (hX : IsTerminal X) : R.Over ⊤ X ≌ C :=
   (equivalenceOfHasObjects' R hX).trans (Over.equivalenceOfIsTerminal hX)
 
-notation E " ⟶("R") " B => { p : E ⟶ B // R p }
-
 /-- A class of maps `P` that is stable under base change is also stable under pushforward
 if whenever pullbacks along `f` exist and `f` satisfies `P`,
 the pullback functor `Over.pullback P ⊤ f` is a left adjoint. -/
 class IsClosedUnderPushforward (P : MorphismProperty C) :
     Prop extends P.IsStableUnderBaseChange where
-  pullback_isLeftAdjoint {X Y : C} (f : X ⟶ Y) (h : P f)
-  [∀ {W : C} (h : W ⟶ Y), HasPullback h f] : (Over.pullback P ⊤ f).IsLeftAdjoint
+  pullback_isLeftAdjoint {X Y : C} (f : X ⟶(P) Y)
+  [∀ {W : C} (h : W ⟶(P) Y), HasPullback h.1 f.1] : (Over.pullback P ⊤ f.1).IsLeftAdjoint
 
 instance (P : MorphismProperty C) [P.IsClosedUnderPushforward]
-    {X Y : C} (f : X ⟶(P) Y) [∀ {W : C} (h : W ⟶ Y), HasPullback h f.1] :
+    {X Y : C} (f : X ⟶(P) Y) [∀ {W : C} (h : W ⟶(P) Y), HasPullback h.1 f.1] :
     (Over.pullback P ⊤ f.1).IsLeftAdjoint :=
-  IsClosedUnderPushforward.pullback_isLeftAdjoint f.1 f.2
+  IsClosedUnderPushforward.pullback_isLeftAdjoint f
 
 /-- A chosen right adjoint to the pullback functor. -/
 def Over.IsClosedUnderPushforward.pushforward
     (P : MorphismProperty C) [P.IsClosedUnderPushforward]
-    {X Y : C} (f : X ⟶(P) Y) [∀ {W : C} (h : W ⟶ Y), HasPullback h f.1] :
+    {X Y : C} (f : X ⟶(P) Y) [∀ {W : C} (h : W ⟶(P) Y), HasPullback h.1 f.1] :
     P.Over ⊤ X ⥤ P.Over ⊤ Y :=
   (Over.pullback P ⊤ f.1).rightAdjoint
 
 end MorphismProperty
 
 /-- `P : UvPoly C` is a polynomial functors in a single variable -/
-structure MvPoly (R : MorphismProperty C) (I O E B : C) where
+structure MvPoly (R : MorphismProperty C) [hR : R.HasPullbacks] [R.IsStableUnderBaseChange]
+    (I O E B : C) where
   (i : E ⟶(R) I)
   (p : E ⟶(R) B)
+  (exp : (MorphismProperty.Over.pullback R ⊤ p.1).IsLeftAdjoint)
   (o : B ⟶(R) O)
 
 namespace MvPoly
@@ -68,7 +68,7 @@ def Over.mk (p : E ⟶(R) B) : R.Over ⊤ B where
   prop := p.2
 
 @[simps]
-def Over.Hom.mk {p q : R.Over ⊤ B} (left : p.left ⟶ q.left) (hleft : left ≫ q.hom = p.hom) :
+def Over.homMk {p q : R.Over ⊤ B} (left : p.left ⟶ q.left) (hleft : left ≫ q.hom = p.hom) :
     p ⟶ q where
   left := left
   right := eqToHom (by simp)
@@ -76,14 +76,7 @@ def Over.Hom.mk {p q : R.Over ⊤ B} (left : p.left ⟶ q.left) (hleft : left �
   prop_hom_left := trivial
   prop_hom_right := trivial
 
-variable [R.IsStableUnderComposition] [hR : R.HasPullbacks] [R.IsStableUnderBaseChange]
--- ∧ [R.HasObjects] ∧ [R.IsomorphismsLe] = clan
-
-variable [R.IsClosedUnderPushforward]
--- clan ∧ [R.IsClosedUnderPushforward] = π-clan
-
-instance (p : E ⟶(R) B) {W : C} (h : W ⟶ B) : HasPullback p.1 h :=
-  hR.hasPullback h p.2
+variable [R.IsStableUnderComposition] [R.HasPullbacks] [R.IsStableUnderBaseChange]
 
 instance (p : E ⟶(R) B) {W : C} (h : W ⟶ B) : HasPullback h p.1 :=
   hasPullback_symmetry _ _
@@ -94,8 +87,9 @@ instance : (⊤ : MorphismProperty C).HasOfPostcompProperty ⊤ where
 instance (p : E ⟶(R) B) : (MorphismProperty.Over.pullback R ⊤ p.1).IsRightAdjoint :=
   (mapPullbackAdj R ⊤ p.1 p.2 ⟨⟩).isRightAdjoint
 
-instance (p : E ⟶(R) B) : (IsClosedUnderPushforward.pushforward R p).IsRightAdjoint := by
-  dsimp [IsClosedUnderPushforward.pushforward]
+instance (p : E ⟶(R) B) (exp : (MorphismProperty.Over.pullback R ⊤ p.1).IsLeftAdjoint) :
+    (Over.pushforward R p.1 exp).IsRightAdjoint := by
+  dsimp [Over.pushforward]
   infer_instance
 
 variable {I O E B : C}
@@ -103,7 +97,7 @@ variable {I O E B : C}
 def functor (P : MvPoly R I O E B) :
     R.Over ⊤ I ⥤ R.Over ⊤ O :=
   pullback R ⊤ P.i.1 ⋙
-  IsClosedUnderPushforward.pushforward R P.p ⋙
+  Over.pushforward R P.p.1 P.exp ⋙
   map ⊤ P.o.2
 
 /-- The action of a univariate polynomial on objects. -/
@@ -125,13 +119,13 @@ Convert an object `p` in `R.Over ⊤ B` to a morphism in `R.Over ⊤ O` by compo
 @[simp]
 def Over.drop (p : R.Over ⊤ B) (o : B ⟶(R) O) :
     (map ⊤ o.2).obj p ⟶ Over.mk o :=
-  Over.Hom.mk p.hom (by simp)
+  Over.homMk p.hom (by simp)
 
 /-- The first projection morphism from `P @ X = ∑ b : B, X ^ (E b)` to `B`,
 where `o` is represented by its domain `B` and `i` is represented by its domain `E`. -/
 def fstProj (P : MvPoly R I O E B) (X : R.Over ⊤ I) : P @ X ⟶ Over.mk P.o :=
   Over.drop ((MorphismProperty.Over.pullback R ⊤ P.i.1 ⋙
-    Over.IsClosedUnderPushforward.pushforward R P.p).obj X) P.o
+    Over.pushforward R P.p.1 P.exp).obj X) P.o
 
 @[reassoc (attr := simp)]
 lemma map_fstProj (P : MvPoly R I O E B) {X Y : R.Over ⊤ I} (f : X ⟶ Y) :
@@ -149,7 +143,10 @@ instance {I O E B : C} (P : MvPoly R I O E B) :
 
 end MvPoly
 
-abbrev UvPoly (R : MorphismProperty C) (E B : C) := E ⟶(R) B
+structure UvPoly (R : MorphismProperty C) [R.HasPullbacks] [R.IsStableUnderBaseChange]
+    (E B : C) where
+  (p : E ⟶(R) B)
+  (exp : (MorphismProperty.Over.pullback R ⊤ p.1).IsLeftAdjoint)
 
 namespace UvPoly
 
@@ -157,35 +154,39 @@ section
 
 variable {R : MorphismProperty C} {E B : C}
 
-variable [R.IsStableUnderComposition] [R.HasPullbacks] [R.IsStableUnderBaseChange]
--- ∧ [R.HasObjects] = clan
+variable [HasTerminal C]
 
-variable [R.IsClosedUnderPushforward]
+variable [R.IsStableUnderComposition] [R.HasPullbacks] [R.IsStableUnderBaseChange] [R.HasObjects]
+-- ∧ [R.IsomorphismsLe] = clan
 -- clan ∧ [R.IsClosedUnderPushforward] = π-clan
 
-variable [HasTerminal C] [R.HasObjects]
+/-- Given a π-clan `R`, any `R`-map is a signature for a polynomial functor. -/
+def ofIsClosedUnderPushforward [R.IsClosedUnderPushforward] (p : E ⟶(R) B) : UvPoly R E B where
+  p := p
+  exp := IsClosedUnderPushforward.pullback_isLeftAdjoint p
 
 def object (X : C) : X ⟶(R) ⊤_ C :=
   ⟨terminal.from X, HasObjects.obj_mem _ terminalIsTerminal⟩
 
-def mvPoly (p : E ⟶(R) B) : MvPoly R (⊤_ C) (⊤_ C) E B where
+def mvPoly (P : UvPoly R E B) : MvPoly R (⊤_ C) (⊤_ C) E B where
   i := object E
-  p := p
+  p := P.p
+  exp := P.exp
   o := object B
 
-def functor (p : E ⟶(R) B) : C ⥤ C :=
+def functor (P : UvPoly R E B) : C ⥤ C :=
   (equivalenceOfHasObjects R terminalIsTerminal).inverse ⋙
-  MvPoly.functor (mvPoly p) ⋙
+  MvPoly.functor P.mvPoly ⋙
   (equivalenceOfHasObjects R terminalIsTerminal).functor
 
 /-- The action of a univariate polynomial on objects. -/
-def apply [HasTerminal C] (p : E ⟶(R) B) : C → C := (functor p).obj
+def apply [HasTerminal C] (P : UvPoly R E B) : C → C := P.functor.obj
 
 @[inherit_doc]
 infix:90 " @ " => apply
 
-instance [HasTerminal C] (p : E ⟶(R) B) :
-    Limits.PreservesLimitsOfShape WalkingCospan (functor p) := by
+instance [HasTerminal C] (P : UvPoly R E B) :
+    Limits.PreservesLimitsOfShape WalkingCospan P.functor := by
   unfold functor
   infer_instance
 
@@ -198,13 +199,13 @@ def id [R.IsomorphismsLe] : B ⟶(R) B := ⟨𝟙 B, isomorphisms_le R _ ⟩
 variable {B}
 
 /-- The fstProjection morphism from `∑ b : B, X ^ (E b)` to `B` again. -/
-def fstProj (P : E ⟶(R) B) (X : C) : P @ X ⟶ B :=
+def fstProj (P : UvPoly R E B) (X : C) : P @ X ⟶ B :=
   (equivalenceOfHasObjects R terminalIsTerminal).functor.map <|
-    (mvPoly P).fstProj ((equivalenceOfHasObjects R terminalIsTerminal).inverse.obj X)
+    P.mvPoly.fstProj ((equivalenceOfHasObjects R terminalIsTerminal).inverse.obj X)
 
 @[reassoc (attr := simp)]
-lemma map_fstProj (P : E ⟶(R) B) {X Y : C} (f : X ⟶ Y) :
-    (functor P).map f ≫ fstProj P Y = fstProj P X := by
+lemma map_fstProj (P : UvPoly R E B) {X Y : C} (f : X ⟶ Y) :
+    P.functor.map f ≫ fstProj P Y = fstProj P X := by
   simp only [fstProj, functor, Functor.comp_map, ← Functor.map_comp]
   simp
 

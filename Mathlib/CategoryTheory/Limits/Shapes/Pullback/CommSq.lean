@@ -682,6 +682,12 @@ theorem paste_vert {X₁₁ X₁₂ X₂₁ X₂₂ X₃₁ X₃₂ : C} {h₁�
     IsPullback h₁₁ (v₁₁ ≫ v₂₁) (v₁₂ ≫ v₂₂) h₃₁ :=
   of_isLimit (pasteHorizIsPullback rfl t.isLimit s.isLimit)
 
+instance {X Y Z : C} {f : X ⟶ Z} [∀ {W : C} (h : W ⟶ Z), HasPullback f h]
+    {g : Y ⟶ X} [∀ {W : C} (h : W ⟶ X), HasPullback g h] {W : C} (h : W ⟶ Z) :
+    HasPullback (g ≫ f) h :=
+  IsPullback.hasPullback (IsPullback.paste_vert (IsPullback.of_hasPullback g (pullback.fst f h))
+    (IsPullback.of_hasPullback f h))
+
 /-- Paste two pullback squares "horizontally" to obtain another pullback square.
 
 The objects in the statement fit into the following diagram:
@@ -790,6 +796,12 @@ theorem of_bot' {X₁₁ X₁₂ X₂₁ X₂₂ X₃₁ X₃₂ : C} {h₁₁ :
     (s : IsPullback h₁₁ v₃₁ (v₁₂ ≫ v₂₂) h₃₁) (t : IsPullback h₂₁ v₂₁ v₂₂ h₃₁) :
     IsPullback h₁₁ (t.lift (h₁₁ ≫ v₁₂) v₃₁ (by rw [Category.assoc, s.w])) v₁₂ h₂₁ :=
   of_bot ((t.lift_snd _ _ _) ▸ s) (by simp only [lift_fst]) t
+
+instance {C : Type*} [Category C] {X Y Z W : C} (f : X ⟶ Y)
+    [∀ {W} (h : W ⟶ Y), HasPullback h f] (g : Z ⟶ Y) (h : W ⟶ Z) :
+    HasPullback h (pullback.fst g f) :=
+  IsPullback.hasPullback (IsPullback.of_bot' (IsPullback.of_hasPullback (h ≫ g) f)
+    (IsPullback.of_hasPullback g f))
 
 section
 
