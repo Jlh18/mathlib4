@@ -167,6 +167,8 @@ class IsStableUnderPushforward (P : MorphismProperty T)
   of_isPushforward {S S' X Y : T} (q : S ⟶(Q) S') (f : X ⟶(P) S) (g : Y ⟶ S')
     (isPushforward : IsPushforward q.1 (.mk f.1) (.mk g)) : P g
 
+noncomputable section
+
 /-- If `P` has pushforwards along `q` then there is a partial left adjoint `P.Over ⊤ S ⥤ Over S'`
 of the pullback functor `pullback q : Over S' ⥤ Over S`.
 -/
@@ -181,14 +183,33 @@ noncomputable def pushforwardPartial (P : MorphismProperty T)
     yoneda.obj (CategoryTheory.Over.mk X'.fst)).IsRepresentable
   infer_instance
 
-noncomputable def pushforward (P : MorphismProperty T) (Q : MorphismProperty T) [Q.HasPullbacks]
-    [P.HasPushforwards Q] [P.IsStableUnderPushforward Q] {S S' : T} (q : S ⟶(Q) S') :
-    P.Over ⊤ S ⥤ P.Over ⊤ S' :=
-  Comma.lift (pushforwardPartial P q.1) (by
-    intro X
-    unfold pushforwardPartial
+/-- The pushforward functor is a partial right adjoint to pullback in the sense that
+there is a natural bijection of hom-sets `T / S (pullback q X, Y) ≃ T / S' (X, pushforward q Y)`. -/
+def pushforwardPartial.homEquiv (P : MorphismProperty T) {S S' : T} (q : S ⟶ S')
+    [∀ {W} (h : W ⟶ S'), HasPullback h q] [P.HasPushforward q] (X : Over S') (Y : P.Over ⊤ S) :
+    (X ⟶ (pushforwardPartial P q).obj Y) ≃
+    ((CategoryTheory.Over.pullback q).obj X ⟶ Y.toComma) :=
+  Functor.partialRightAdjointHomEquiv _
 
-    sorry
-  ) (by simp) (by simp)
+variable (P : MorphismProperty T) {Q : MorphismProperty T} [Q.HasPullbacks]
+    [P.HasPushforwards Q] [P.IsStableUnderPushforward Q]
+
+/-- When `P` has pushforwards along `Q` and is stable under pushforwards along `Q`,
+the pushforward functor along any morphism `q` satisfying `Q` can be defined. -/
+noncomputable def pushforward {S S' : T} (q : S ⟶(Q) S') : P.Over ⊤ S ⥤ P.Over ⊤ S' :=
+  Comma.lift (pushforwardPartial P q.1) (fun X =>
+    let X' : _ ⟶(P) S := ⟨ X.hom , X.prop ⟩
+    IsStableUnderPushforward.of_isPushforward q X' _
+        (pushforward.isPushforward q.fst (CategoryTheory.Over.mk X'.fst)))
+  (by simp) (by simp)
+
+/-- The pushforward functor is a partial right adjoint to pullback in the sense that
+there is a natural bijection of hom-sets `T / S (pullback q X, Y) ≃ T / S' (X, pushforward q Y)`. -/
+def pushforward.homEquiv {S S' : T} (q : S ⟶(Q) S') (X : Over S') (Y : P.Over ⊤ S) :
+    (X ⟶ ((pushforward P q).obj Y).toComma) ≃
+    ((CategoryTheory.Over.pullback q.1).obj X ⟶ Y.toComma) :=
+  (pushforwardPartial.homEquiv P q.1 X Y)
+
+end
 
 end CategoryTheory.MorphismProperty
