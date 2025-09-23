@@ -7,6 +7,7 @@ import Mathlib.CategoryTheory.MorphismProperty.Comma
 import Mathlib.CategoryTheory.Comma.Over.Pullback
 import Mathlib.CategoryTheory.MorphismProperty.Limits
 import Mathlib.Tactic.DepRewrite
+import Mathlib.CategoryTheory.Comma.Over.Pushforward
 
 /-!
 # Adjunction of pushforward and pullback in `P.Over Q X`
@@ -147,5 +148,47 @@ noncomputable def Over.mapPullbackAdj [Q.HasOfPostcompProperty Q] (hPf : P f) (h
             · simpa using h.w.symm } }
 
 end Adjunction
+
+/-- Pushforward along a morphism `f` (for which all pullbacks exist) exists relative to `P`
+when pushforwards exist along `f` for all morphisms satisfying `P`. -/
+protected abbrev HasPushforward (P : MorphismProperty T) {S S' : T} (f : S ⟶ S')
+    [∀ {W} (h : W ⟶ S'), HasPullback h f] : Prop :=
+  ∀ {W} (h : W ⟶(P) S), HasPushforward f (.mk h.1)
+
+/-- Morphisms satisfying `P` have pushforwards along morphisms satisfying `Q`. -/
+protected abbrev HasPushforwards (P : MorphismProperty T)
+    (Q : MorphismProperty T) [Q.HasPullbacks] : Prop :=
+  ∀ {S S' : T} (q : S ⟶(Q) S'), P.HasPushforward q.1
+
+/-- Morphisms satisfying `P` are stable under pushforward along morphisms satisfying `Q`
+if whenever pushforward along a morphism in `Q` exists it is in `P`. -/
+class IsStableUnderPushforward (P : MorphismProperty T)
+    (Q : MorphismProperty T) [Q.HasPullbacks] : Prop where
+  of_isPushforward {S S' X Y : T} (q : S ⟶(Q) S') (f : X ⟶(P) S) (g : Y ⟶ S')
+    (isPushforward : IsPushforward q.1 (.mk f.1) (.mk g)) : P g
+
+/-- If `P` has pushforwards along `q` then there is a partial left adjoint `P.Over ⊤ S ⥤ Over S'`
+of the pullback functor `pullback q : Over S' ⥤ Over S`.
+-/
+noncomputable def pushforwardPartial (P : MorphismProperty T)
+    {S S' : T} (q : S ⟶ S') [∀ {W} (h : W ⟶ S'), HasPullback h q] [P.HasPushforward q] :
+    P.Over ⊤ S ⥤ Over S' := by
+  refine Functor.PartialRightAdjointSource.lift (Over.forget P ⊤ S) ?_ ⋙
+    (CategoryTheory.Over.pullback q).partialRightAdjoint
+  intro X
+  let X' : _ ⟶(P) S := ⟨ X.hom , X.prop ⟩
+  convert_to ((CategoryTheory.Over.pullback q).op ⋙
+    yoneda.obj (CategoryTheory.Over.mk X'.fst)).IsRepresentable
+  infer_instance
+
+noncomputable def pushforward (P : MorphismProperty T) (Q : MorphismProperty T) [Q.HasPullbacks]
+    [P.HasPushforwards Q] [P.IsStableUnderPushforward Q] {S S' : T} (q : S ⟶(Q) S') :
+    P.Over ⊤ S ⥤ P.Over ⊤ S' :=
+  Comma.lift (pushforwardPartial P q.1) (by
+    intro X
+    unfold pushforwardPartial
+
+    sorry
+  ) (by simp) (by simp)
 
 end CategoryTheory.MorphismProperty

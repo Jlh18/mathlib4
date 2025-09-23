@@ -897,19 +897,18 @@ lemma universally_mk' (P : MorphismProperty C) [P.RespectsIso] {X Y : C} (g : X 
 
 end Universally
 
-variable (P : MorphismProperty C)
+variable (P : MorphismProperty C) (Q : MorphismProperty C)
 
-protected class HasPullbacks : Prop where
-  hasPullbacks {X Y : C} (f : X ⟶ Y) : P.HasPullback f := by infer_instance
+/-- A morphism property `P` has has pullbacks along `Q` when
+pullbacks along all morphisms satisfying `Q` satisfying `P` exist. -/
+protected abbrev HasPullbacks : Prop :=
+  ∀ {X Y : C} (f : X ⟶ Y), P.HasPullback f
 
-instance [P.HasPullbacks] {X Y : C} (f : X ⟶ Y) : P.HasPullback f :=
-  HasPullbacks.hasPullbacks f
+instance [P.HasPullbacks] {S S' : C} (f : S ⟶(P) S') {W : C} (h : W ⟶ S') :
+    HasPullback h f.1 :=
+  hasPullback_symmetry _ _
 
-instance [HasPullbacks C] : P.HasPullbacks where
-
-alias hasPullbacks := HasPullbacks.hasPullbacks
-
-/-- A morphism property satisfies `ContainsObjects` if any map `! : X ⟶ Y` to a terminal
+/-- A morphism property satisfies `ContainsObjects` when any map `! : X ⟶ Y` to a terminal
 object `Y` satisfies the morphism property. -/
 class HasObjects (P : MorphismProperty C) : Prop where
   obj_mem {X Y} (f : X ⟶ Y) : Limits.IsTerminal Y → P f

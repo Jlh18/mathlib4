@@ -7,7 +7,6 @@ Authors: Joseph Hua, Sina Hazratpour, Emily Riehl
 import Mathlib.CategoryTheory.MorphismProperty.OverAdjunction
 import Mathlib.CategoryTheory.Functor.TwoSquare
 import Mathlib.CategoryTheory.NatTrans.IsCartesian
-import Mathlib.CategoryTheory.Comma.Over.Pushforward
 
 universe v u
 
@@ -102,7 +101,7 @@ noncomputable def OverTop.pushforward [P.IsStableUnderBaseChange]
 
 abbrev Exponentiable (P : MorphismProperty C) [P.IsStableUnderBaseChange]
     {E B} (f : E ⟶ B) [P.HasPullback f] :=
-  P.HasPushforward f
+  (pullback P f).IsLeftAdjoint
 
 section Exponentiable
 
