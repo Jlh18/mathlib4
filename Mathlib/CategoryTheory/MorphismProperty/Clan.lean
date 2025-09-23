@@ -23,13 +23,11 @@ namespace MorphismProperty
 
 variable (P : MorphismProperty C)
 
-abbrev OverTop (X : C) := P.Over ⊤ X
-
-namespace OverTop
+namespace Over
 
 @[simps]
 def equivalenceOfHasObjects' (R : MorphismProperty C) [R.HasObjects]
-    {X : C} (hX : IsTerminal X) : R.OverTop X ≌ Over X where
+    {X : C} (hX : IsTerminal X) : R.Over ⊤ X ≌ Over X where
   functor := MorphismProperty.Over.forget _ _ _
   inverse := Comma.lift (𝟭 _) (by intro; apply HasObjects.obj_mem _ hX) (by simp) (by simp)
   unitIso := eqToIso rfl
@@ -38,27 +36,27 @@ def equivalenceOfHasObjects' (R : MorphismProperty C) [R.HasObjects]
 
 @[simp]
 def equivalenceOfHasObjects (R : MorphismProperty C) [R.HasObjects]
-    {X : C} (hX : IsTerminal X) : R.OverTop X ≌ C :=
+    {X : C} (hX : IsTerminal X) : R.Over ⊤ X ≌ C :=
   (equivalenceOfHasObjects' R hX).trans (Over.equivalenceOfIsTerminal hX)
 
-abbrev pullback (P : MorphismProperty C) [P.IsStableUnderBaseChange]
-    {E B} (f : E ⟶ B) [P.HasPullback f] := MorphismProperty.Over.pullback P ⊤ f
+-- abbrev pullback (P : MorphismProperty C) [P.IsStableUnderBaseChange]
+--     {E B} (f : E ⟶ B) [P.HasPullback f] := MorphismProperty.Over.pullback P ⊤ f
 
-abbrev map {P : MorphismProperty C} [P.IsStableUnderComposition]
-    {X Y : C} {f : X ⟶ Y} (hPf : P f) :=
-  MorphismProperty.Over.map ⊤ hPf
+-- abbrev map {P : MorphismProperty C} [P.IsStableUnderComposition]
+--     {X Y : C} {f : X ⟶ Y} (hPf : P f) :=
+--   MorphismProperty.Over.map ⊤ hPf
 
 variable {P : MorphismProperty C} {E B : C}
 
 @[simps]
-def mk (p : E ⟶(P) B) : P.OverTop B where
+def ofMorphismProperty (p : E ⟶(P) B) : P.Over ⊤ B where
   left := E
   right := ⟨⟨⟩⟩
   hom := p.1
   prop := p.2
 
 @[simps]
-def homMk {p q : P.OverTop B} (left : p.left ⟶ q.left) (hleft : left ≫ q.hom = p.hom) :
+def homMkTop {p q : P.Over ⊤ B} (left : p.left ⟶ q.left) (hleft : left ≫ q.hom = p.hom) :
     p ⟶ q where
   left := left
   right := eqToHom (by simp)
@@ -77,46 +75,51 @@ Convert an object `p` in `R.OverTop B` to a morphism in `R.OverTop O` by composi
      O
 -/
 @[simp]
-def homOfMorphismProperty [P.IsStableUnderComposition] {O} (p : P.OverTop B) (o : B ⟶(P) O) :
-    (map o.2).obj p ⟶ OverTop.mk o :=
+def homOfMorphismProperty [P.IsStableUnderComposition] {O} (p : P.Over ⊤ B) (o : B ⟶(P) O) :
+    (map ⊤ o.2).obj p ⟶ Over.ofMorphismProperty o :=
   Over.homMk p.hom (by simp)
 
-end OverTop
+end Over
 
-
-open OverTop
-
-/-- A class of maps `P` that is stable under base change is also stable under pushforward
-if whenever pullbacks of maps in `P` along `f` exist,
-the pullback functor `Over.pullback P ⊤ f` is a left adjoint. -/
-class IsStableUnderPushforward : Prop extends P.IsStableUnderBaseChange where
-  pullback_isLeftAdjoint {X Y : C} (f : X ⟶ Y) [P.HasPullback f] :
-  (pullback P f).IsLeftAdjoint
-
-/-- A chosen right adjoint to the pullback functor. -/
-noncomputable def OverTop.pushforward [P.IsStableUnderBaseChange]
-    {X Y : C} (f : X ⟶ Y) [P.HasPullback f]
-    (hf : (MorphismProperty.Over.pullback P ⊤ f).IsLeftAdjoint) :
-    P.OverTop X ⥤ P.OverTop Y :=
-  (pullback P f).rightAdjoint
-
-abbrev Exponentiable (P : MorphismProperty C) [P.IsStableUnderBaseChange]
-    {E B} (f : E ⟶ B) [P.HasPullback f] :=
-  P.HasPushforward f
+open Over
 
 section Exponentiable
 
-variable (P : MorphismProperty C) [P.IsStableUnderBaseChange] {X Y : C} (f : X ⟶ Y)
-    [P.HasPullback f] [P.Exponentiable f]
+variable (P : MorphismProperty C) [P.IsStableUnderBaseChange] {S S' : C} (f : S ⟶(P) S')
+    [P.HasPullbacks] [P.HasPushforwards P] [P.IsStableUnderPushforward P]
 
-/-- A chosen right adjoint to the pullback functor. -/
-def pushforward : P.OverTop X ⥤ P.OverTop Y :=
-  (pullback P f).rightAdjoint
+-- /-- A chosen right adjoint to the pullback functor. -/
+-- def pushforward' : P.Over ⊤ X ⥤ P.Over ⊤ Y :=
+--   pushforward P f
 
 /-- The `pullback ⊣ pushforward` adjunction. -/
-def pullbackPushforwardAdjunction : Over.pullback P ⊤ f ⊣ pushforward P f :=
-  Adjunction.ofIsLeftAdjoint (pullback P f)
-
+def pullbackPushforwardAdjunction : pullback P ⊤ f.1 ⊣ pushforward P f :=
+  Adjunction.mkOfHomEquiv {
+    homEquiv X Y :=
+      calc ((pullback P ⊤ f.1).obj X ⟶ Y)
+      _ ≃ (((Over.pullback P ⊤ f.fst).obj X).toComma ⟶ Y.toComma) :=
+        (Functor.FullyFaithful.ofFullyFaithful (Over.forget P ⊤ S)).homEquiv
+      _ ≃ (X.toComma ⟶ ((P.pushforward f).obj Y).toComma) :=
+        (pushforward.homEquiv f).symm
+      _ ≃ _ := Equiv.cast (by dsimp) -- why?
+      _ ≃ (X ⟶ (P.pushforward f).obj Y) :=
+        (Functor.FullyFaithful.ofFullyFaithful (Over.forget P ⊤ S')).homEquiv.symm
+    homEquiv_naturality_left_symm g f := by
+      simp
+      erw [Functor.FullyFaithful.homEquiv_apply, Functor.FullyFaithful.homEquiv_symm_apply,
+        Functor.FullyFaithful.homEquiv_apply, Functor.FullyFaithful.homEquiv_symm_apply]
+      rw [Functor.map_comp]
+      erw [pushforward.homEquiv_comp]
+      apply Functor.FullyFaithful.map_injective
+        (Functor.FullyFaithful.ofFullyFaithful (Over.forget P ⊤ S))
+      simp only [Functor.FullyFaithful.map_preimage, Functor.map_comp]
+      simp []
+      congr 1
+      -- rw [Functor.FullyFaithful.preimage_map]
+      sorry
+    homEquiv_naturality_right := sorry
+  }
+#exit
 /-- The dependent evaluation natural transformation as the counit of the adjunction. -/
 abbrev ev : pushforward P f ⋙ pullback P f ⟶ 𝟭 _ :=
   pullbackPushforwardAdjunction P f |>.counit
