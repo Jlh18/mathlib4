@@ -160,7 +160,10 @@ protected abbrev HasPushforward (P : MorphismProperty T) {S S' : T} (f : S ⟶ S
     [∀ {W} (h : W ⟶ S'), HasPullback h f] : Prop :=
   ∀ {W} (h : W ⟶(P) S), HasPushforward f (.mk h.1)
 
-/-- Morphisms satisfying `P` have pushforwards along morphisms satisfying `Q`. -/
+/-- Morphisms satisfying `P` have pushforwards along morphisms satisfying `Q`.
+We require that `[H.HasPullbacks]` so that we can define the universal property of
+pushforward along `p` relative to the pullback.
+-/
 protected abbrev HasPushforwards (P : MorphismProperty T)
     (Q : MorphismProperty T) [Q.HasPullbacks] : Prop :=
   ∀ {S S' : T} (q : S ⟶(Q) S'), P.HasPushforward q.1
@@ -188,33 +191,34 @@ noncomputable def pushforwardPartial (P : MorphismProperty T)
     yoneda.obj (CategoryTheory.Over.mk X'.fst)).IsRepresentable
   infer_instance
 
-section homEquiv
+-- section homEquiv
 
-variable {P} {S S' : T} (q : S ⟶ S')
-    [∀ {W} (h : W ⟶ S'), HasPullback h q] [P.HasPushforward q] {X : Over S'} {Y : P.Over ⊤ S}
+-- variable {P} {S S' : T} (q : S ⟶ S')
+--     [∀ {W} (h : W ⟶ S'), HasPullback h q] [P.HasPushforward q] {X : Over S'} {Y : P.Over ⊤ S}
 
-/-- The pushforward functor is a partial right adjoint to pullback in the sense that
-there is a natural bijection of hom-sets `T / S (pullback q X, Y) ≃ T / S' (X, pushforward q Y)`. -/
-def pushforwardPartial.homEquiv :
-    (X ⟶ (pushforwardPartial P q).obj Y) ≃
-    ((CategoryTheory.Over.pullback q).obj X ⟶ Y.toComma) :=
-  Functor.partialRightAdjointHomEquiv _
+-- /-- The pushforward functor is a partial right adjoint to pullback in the sense that
+-- there is a natural bijection of hom-sets
+-- `T / S (pullback q X, Y) ≃ T / S' (X, pushforward q Y)`. -/
+-- abbrev pushforwardPartial.homEquiv :
+--     (X ⟶ (pushforwardPartial P q).obj Y) ≃
+--     ((CategoryTheory.Over.pullback q).obj X ⟶ Y.toComma) :=
+--   Functor.partialRightAdjointHomEquiv _
 
-lemma pushforwardPartial.homEquiv_comp {S S' : T} (q : S ⟶ S')
-    [∀ {W} (h : W ⟶ S'), HasPullback h q] [P.HasPushforward q] {X X' : Over S'} {Y : P.Over ⊤ S}
-    (f : X' ⟶ (pushforwardPartial P q).obj Y) (g : X ⟶ X') :
-    pushforwardPartial.homEquiv q (g ≫ f) =
-    (CategoryTheory.Over.pullback q).map g ≫ pushforwardPartial.homEquiv q f :=
-  Functor.partialRightAdjointHomEquiv_comp ..
+-- lemma pushforwardPartial.homEquiv_comp {S S' : T} (q : S ⟶ S')
+--     [∀ {W} (h : W ⟶ S'), HasPullback h q] [P.HasPushforward q] {X X' : Over S'} {Y : P.Over ⊤ S}
+--     (f : X' ⟶ (pushforwardPartial P q).obj Y) (g : X ⟶ X') :
+--     pushforwardPartial.homEquiv q (g ≫ f) =
+--     (CategoryTheory.Over.pullback q).map g ≫ pushforwardPartial.homEquiv q f :=
+--   Functor.partialRightAdjointHomEquiv_comp ..
 
-lemma pushforwardPartial.homEquiv_map_comp {S S' : T} (q : S ⟶ S')
-    [∀ {W} (h : W ⟶ S'), HasPullback h q] [P.HasPushforward q] {X : Over S'} {Y Y' : P.Over ⊤ S}
-    (f : X ⟶ (pushforwardPartial P q).obj Y) (g : Y ⟶ Y') :
-    pushforwardPartial.homEquiv q (f ≫ (P.pushforwardPartial q).map g) =
-    pushforwardPartial.homEquiv q f ≫ g.toCommaMorphism :=
-  Functor.partialRightAdjointHomEquiv_map_comp ..
+-- lemma pushforwardPartial.homEquiv_map_comp {S S' : T} (q : S ⟶ S')
+--     [∀ {W} (h : W ⟶ S'), HasPullback h q] [P.HasPushforward q] {X : Over S'} {Y Y' : P.Over ⊤ S}
+--     (f : X ⟶ (pushforwardPartial P q).obj Y) (g : Y ⟶ Y') :
+--     pushforwardPartial.homEquiv q (f ≫ (P.pushforwardPartial q).map g) =
+--     pushforwardPartial.homEquiv q f ≫ g.toCommaMorphism :=
+--   Functor.partialRightAdjointHomEquiv_map_comp ..
 
-end homEquiv
+-- end homEquiv
 
 /-- When `P` has pushforwards along `Q` and is stable under pushforwards along `Q`,
 the pushforward functor along any morphism `q` satisfying `Q` can be defined. -/
@@ -236,21 +240,201 @@ there is a natural bijection of hom-sets `T / S (pullback q X, Y) ≃ T / S' (X,
 def pushforward.homEquiv {X : Over S'} {Y : P.Over ⊤ S} :
     (X ⟶ ((pushforward P q).obj Y).toComma) ≃
     ((CategoryTheory.Over.pullback q.1).obj X ⟶ Y.toComma) :=
-  pushforwardPartial.homEquiv q.1
+  (Functor.partialRightAdjointHomEquiv ..)
 
 lemma pushforward.homEquiv_comp {X X' : Over S'} {Y : P.Over ⊤ S}
     (f : X' ⟶ ((pushforward P q).obj Y).toComma) (g : X ⟶ X') :
     pushforward.homEquiv q (g ≫ f) =
-    (CategoryTheory.Over.pullback q.fst).map g ≫ pushforward.homEquiv q f :=
-  pushforwardPartial.homEquiv_comp ..
+    (CategoryTheory.Over.pullback q.fst).map g ≫ homEquiv q f :=
+  Functor.partialRightAdjointHomEquiv_comp ..
 
 lemma pushforward.homEquiv_map_comp {X : Over S'} {Y Y' : P.Over ⊤ S}
     (f : X ⟶ ((pushforward P q).obj Y).toComma) (g : Y ⟶ Y') :
-    pushforward.homEquiv q (f ≫ Comma.Hom.hom ((P.pushforward q).map g)) =
-    pushforward.homEquiv q f ≫ Comma.Hom.hom g :=
-  pushforwardPartial.homEquiv_map_comp ..
+    homEquiv q (f ≫ Comma.Hom.hom ((P.pushforward q).map g)) =
+    homEquiv q f ≫ Comma.Hom.hom g :=
+  Functor.partialRightAdjointHomEquiv_map_comp ..
+
+lemma pushforward.homEquiv_symm_comp {X : Over S'} {Y Y' : P.Over ⊤ S}
+    (f : (CategoryTheory.Over.pullback q.1).obj X ⟶ Y.toComma) (g : Y ⟶ Y') :
+    (homEquiv q).symm f ≫ Comma.Hom.hom ((P.pushforward q).map g) =
+    (homEquiv q).symm (f ≫ Comma.Hom.hom g) :=
+  Functor.partialRightAdjointHomEquiv_symm_comp ..
+
+lemma pushforward.homEquiv_comp_symm {X X' : Over S'} {Y : P.Over ⊤ S}
+    (f : (CategoryTheory.Over.pullback q.1).obj X' ⟶ Y.toComma) (g : X ⟶ X') :
+    g ≫ (homEquiv q).symm f =
+    (homEquiv q).symm ((CategoryTheory.Over.pullback q.fst).map g ≫ f) :=
+  Functor.partialRightAdjointHomEquiv_comp_symm ..
 
 end homEquiv
+
+section
+
+open MorphismProperty.Over
+
+variable [P.IsStableUnderBaseChange] {S S' : T} (f : S ⟶(Q) S')
+    [Q.HasPullbacks] [P.HasPushforwards Q] [P.IsStableUnderPushforward Q]
+
+/-- The `pullback ⊣ pushforward` adjunction. -/
+def pullbackPushforwardAdjunction : pullback P ⊤ f.1 ⊣ pushforward P f :=
+  Adjunction.mkOfHomEquiv {
+    homEquiv X Y :=
+      calc ((pullback P ⊤ f.1).obj X ⟶ Y)
+      _ ≃ (((Over.pullback P ⊤ f.fst).obj X).toComma ⟶ Y.toComma) :=
+        (Functor.FullyFaithful.ofFullyFaithful (Over.forget P ⊤ S)).homEquiv
+      _ ≃ (X.toComma ⟶ ((P.pushforward f).obj Y).toComma) :=
+        (pushforward.homEquiv f).symm
+      _ ≃ _ := Equiv.cast (by dsimp) -- why?
+      _ ≃ (X ⟶ (P.pushforward f).obj Y) :=
+        (Functor.FullyFaithful.ofFullyFaithful (Over.forget P ⊤ S')).homEquiv.symm
+    homEquiv_naturality_left_symm g f := by
+      simp only [Equiv.trans_def, Equiv.cast_refl, Equiv.trans_refl,
+        Equiv.symm_trans_apply, Equiv.symm_symm]
+      erw [Functor.FullyFaithful.homEquiv_apply, Functor.FullyFaithful.homEquiv_symm_apply,
+        Functor.FullyFaithful.homEquiv_apply, Functor.FullyFaithful.homEquiv_symm_apply,
+        Functor.map_comp, pushforward.homEquiv_comp]
+      apply Functor.FullyFaithful.map_injective
+        (Functor.FullyFaithful.ofFullyFaithful (Over.forget P ⊤ S))
+      simp only [Functor.FullyFaithful.map_preimage, Functor.map_comp]
+      simp only [Comma.forget_obj, Comma.forget_map, hom_pullback_map]
+      congr 1
+    homEquiv_naturality_right f g := by
+      simp only [Comma.forget_obj, Equiv.trans_def, Equiv.cast_refl, Equiv.trans_refl,
+        Equiv.trans_apply]
+      erw [Functor.FullyFaithful.homEquiv_symm_apply, Functor.FullyFaithful.homEquiv_symm_apply,
+        Functor.FullyFaithful.homEquiv_apply, Functor.FullyFaithful.homEquiv_apply]
+      apply Functor.FullyFaithful.map_injective
+        (Functor.FullyFaithful.ofFullyFaithful (Over.forget P ⊤ S'))
+      simp only [Functor.FullyFaithful.map_preimage, Functor.map_comp]
+      erw [pushforward.homEquiv_symm_comp]
+      rfl
+  }
+
+instance : (pullback P ⊤ f.1).IsLeftAdjoint :=
+  Adjunction.isLeftAdjoint (pullbackPushforwardAdjunction P Q f)
+
+instance : (pushforward P f).IsRightAdjoint :=
+  Adjunction.isRightAdjoint (pullbackPushforwardAdjunction P Q f)
+
+end
+
+section homEquiv
+
+variable {P} [P.HasPullbacks] [P.IsStableUnderBaseChange] {S S' : T} (i : S ⟶ S')
+
+/-- `MorphismProperty.Over.pullback P ⊤ f` is a partial right adjoint to `Over.map f`. -/
+@[simps!]
+def pullback.homEquiv {X : Over S} {Y : P.Over ⊤ S'} :
+    (X ⟶ ((Over.pullback P ⊤ i).obj Y).toComma) ≃
+    ((CategoryTheory.Over.map i).obj X ⟶ Y.toComma) where
+  toFun v := CategoryTheory.Over.homMk (v.left ≫ pullback.fst _ _) <| by
+            simp only [Over.morphismProperty_fst, Category.assoc, pullback.condition,
+              CategoryTheory.Over.map_obj_hom]
+            erw [← CategoryTheory.Over.w v]
+            simp
+  invFun u := CategoryTheory.Over.homMk (pullback.lift u.left X.hom <| by simp)
+  left_inv v := by
+    ext; dsimp; ext
+    · simp
+    · simpa using (CategoryTheory.Over.w v).symm
+  right_inv u := by cat_disch
+
+lemma pullback.homEquiv_comp {X X' : Over S} {Y : P.Over ⊤ S'}
+    (f : X' ⟶ ((Over.pullback P ⊤ i).obj Y).toComma) (g : X ⟶ X') :
+    homEquiv i (g ≫ f) =
+    (CategoryTheory.Over.map i).map g ≫ homEquiv i f := by
+  ext; simp
+
+lemma pullback.homEquiv_map_comp {X : Over S} {Y Y' : P.Over ⊤ S'}
+    (f : X ⟶ ((Over.pullback P ⊤ i).obj Y).toComma) (g : Y ⟶ Y') :
+    homEquiv i (f ≫ Comma.Hom.hom ((Over.pullback P ⊤ i).map g)) =
+    homEquiv i f ≫ Comma.Hom.hom g := by
+  ext; simp
+
+lemma pullback.homEquiv_symm_comp {X : Over S} {Y Y' : P.Over ⊤ S'}
+    (f : (CategoryTheory.Over.map i).obj X ⟶ Y.toComma) (g : Y ⟶ Y') :
+    (homEquiv i).symm f ≫ Comma.Hom.hom ((Over.pullback P ⊤ i).map g) =
+    (homEquiv i).symm (f ≫ Comma.Hom.hom g) := by
+  ext; dsimp; ext
+  · simp
+  · simp
+
+lemma pullback.homEquiv_comp_symm {X X' : Over S} {Y : P.Over ⊤ S'}
+    (f : (CategoryTheory.Over.map i).obj X' ⟶ Y.toComma) (g : X ⟶ X') :
+    g ≫ (homEquiv i).symm f =
+    (homEquiv i).symm ((CategoryTheory.Over.map i).map g ≫ f) := by
+  ext; dsimp; ext
+  · simp
+  · simp
+
+variable {Q : MorphismProperty T} [Q.HasPullbacks] [P.HasPushforwards Q]
+  [P.IsStableUnderPushforward Q] {S'' : T} (q : S ⟶(Q) S'')
+
+abbrev polynomial := Over.pullback P ⊤ i ⋙ pushforward P q
+
+abbrev polynomial.partialRightAdjoint :=
+  CategoryTheory.Over.pullback q.1 ⋙ CategoryTheory.Over.map i
+
+/-- `pullback P ⊤ i ⋙ pushforward P q` is a partial right adjoint to
+`CategoryTheory.Over.pullback q.1 ⋙ CategoryTheory.Over.map i`
+-/
+def polynomial.homEquiv {X : Over S''} {Y : P.Over ⊤ S'} :
+    (X ⟶ ((polynomial i q).obj Y).toComma) ≃
+    ((partialRightAdjoint i q).obj X ⟶ Y.toComma) :=
+  calc (X ⟶ ((P.pushforward q).obj ((Over.pullback P ⊤ i).obj Y)).toComma)
+  _ ≃ ((CategoryTheory.Over.pullback q.1).obj X ⟶ ((Over.pullback P ⊤ i).obj Y).toComma) :=
+    pushforward.homEquiv ..
+  _ ≃ ((CategoryTheory.Over.map i).obj
+      ((CategoryTheory.Over.pullback q.fst).obj X) ⟶ Y.toComma) :=
+    pullback.homEquiv ..
+
+lemma polynomial.homEquiv_comp {X X' : Over S''} {Y : P.Over ⊤ S'}
+    (f : X' ⟶ ((polynomial i q).obj Y).toComma) (g : X ⟶ X') :
+    homEquiv i q (g ≫ f) =
+    (partialRightAdjoint i q).map g ≫ homEquiv i q f := by
+  unfold polynomial.homEquiv
+  simp only [Functor.comp_obj, Equiv.trans_def, Equiv.trans_apply]
+  erw [pushforward.homEquiv_comp, pullback.homEquiv_comp]
+  rfl
+
+lemma polynomial.homEquiv_map_comp {X : Over S''} {Y Y' : P.Over ⊤ S'}
+    (f : X ⟶ ((polynomial i q).obj Y).toComma) (g : Y ⟶ Y') :
+    homEquiv i q (f ≫ Comma.Hom.hom ((polynomial i q).map g)) =
+    homEquiv i q f ≫ Comma.Hom.hom g := by
+  unfold polynomial.homEquiv
+  simp only [Functor.comp_obj, Equiv.trans_def, Equiv.trans_apply]
+  erw [pushforward.homEquiv_map_comp, pullback.homEquiv_map_comp]
+  rfl
+
+lemma polynomial.homEquiv_symm_comp {X : Over S''} {Y Y' : P.Over ⊤ S'}
+    (f : (partialRightAdjoint i q).obj X ⟶ Y.toComma) (g : Y ⟶ Y') :
+    (homEquiv i q).symm f ≫ Comma.Hom.hom ((polynomial i q).map g) =
+    (homEquiv i q).symm (f ≫ Comma.Hom.hom g) := by
+  unfold polynomial.homEquiv
+  simp
+  erw [pushforward.homEquiv_symm_comp, pullback.homEquiv_symm_comp]
+  rfl
+
+lemma polynomial.homEquiv_comp_symm {X X' : Over S''} {Y : P.Over ⊤ S'}
+    (f : (partialRightAdjoint i q).obj X' ⟶ Y.toComma) (g : X ⟶ X') :
+    g ≫ (homEquiv i q).symm f =
+    (homEquiv i q).symm ((partialRightAdjoint i q).map g ≫ f) := by
+  unfold polynomial.homEquiv
+  simp
+  erw [pushforward.homEquiv_comp_symm, pullback.homEquiv_comp_symm]
+  rfl
+
+def polynomial.counit :
+    polynomial i q ⋙ Over.forget P ⊤ S'' ⋙ partialRightAdjoint i q ⟶ Over.forget P ⊤ S' where
+  app _ := polynomial.homEquiv i q (𝟙 _)
+  naturality X Y f := by
+    apply (polynomial.homEquiv i q).symm.injective
+    conv => left; erw [← polynomial.homEquiv_comp_symm]
+    conv => right; erw [← polynomial.homEquiv_symm_comp]
+    simp
+
+end homEquiv
+
 end
 
 end CategoryTheory.MorphismProperty

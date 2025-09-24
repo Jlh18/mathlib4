@@ -28,7 +28,9 @@ abbrev IsPushforward (X : Over S) (Y : Over S') :=
   ((Over.pullback f).op ⋙ yoneda.obj X).RepresentableBy Y
 
 /-- An object `X` in the slice over `S` has a pushforward along morphism `f : S ⟶ S'`
-when the partial right adjoint of pullback along `f` is well-defined on the object `X`. -/
+when the partial right adjoint of pullback along `f` is well-defined on the object `X`.
+This definition could be generalised to not require pullbacks, but such settings are rare.
+-/
 abbrev HasPushforward (X : Over S) : Prop :=
   ((Over.pullback f).op ⋙ yoneda.obj X).IsRepresentable
 
