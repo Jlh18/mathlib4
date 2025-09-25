@@ -367,20 +367,21 @@ lemma pullback.homEquiv_comp_symm {X X' : Over S} {Y : P.Over ⊤ S'}
   · simp
   · simp
 
+namespace PolynomialPartialAdjunction
 variable {Q : MorphismProperty T} [Q.HasPullbacks] [P.HasPushforwards Q]
   [P.IsStableUnderPushforward Q] {S'' : T} (q : S ⟶(Q) S'')
 
-abbrev polynomial := Over.pullback P ⊤ i ⋙ pushforward P q
+/-- The partial right adjoint representing a multivariate polynomial. -/
+abbrev partialRightAdjoint := Over.pullback P ⊤ i ⋙ pushforward P q
 
-abbrev polynomial.partialRightAdjoint :=
-  CategoryTheory.Over.pullback q.1 ⋙ CategoryTheory.Over.map i
+abbrev leftAdjoint := CategoryTheory.Over.pullback q.1 ⋙ CategoryTheory.Over.map i
 
 /-- `pullback P ⊤ i ⋙ pushforward P q` is a partial right adjoint to
 `CategoryTheory.Over.pullback q.1 ⋙ CategoryTheory.Over.map i`
 -/
-def polynomial.homEquiv {X : Over S''} {Y : P.Over ⊤ S'} :
-    (X ⟶ ((polynomial i q).obj Y).toComma) ≃
-    ((partialRightAdjoint i q).obj X ⟶ Y.toComma) :=
+def homEquiv {X : Over S''} {Y : P.Over ⊤ S'} :
+    (X ⟶ ((partialRightAdjoint i q).obj Y).toComma) ≃
+    ((leftAdjoint i q).obj X ⟶ Y.toComma) :=
   calc (X ⟶ ((P.pushforward q).obj ((Over.pullback P ⊤ i).obj Y)).toComma)
   _ ≃ ((CategoryTheory.Over.pullback q.1).obj X ⟶ ((Over.pullback P ⊤ i).obj Y).toComma) :=
     pushforward.homEquiv ..
@@ -388,50 +389,52 @@ def polynomial.homEquiv {X : Over S''} {Y : P.Over ⊤ S'} :
       ((CategoryTheory.Over.pullback q.fst).obj X) ⟶ Y.toComma) :=
     pullback.homEquiv ..
 
-lemma polynomial.homEquiv_comp {X X' : Over S''} {Y : P.Over ⊤ S'}
-    (f : X' ⟶ ((polynomial i q).obj Y).toComma) (g : X ⟶ X') :
+lemma homEquiv_comp {X X' : Over S''} {Y : P.Over ⊤ S'}
+    (f : X' ⟶ ((partialRightAdjoint i q).obj Y).toComma) (g : X ⟶ X') :
     homEquiv i q (g ≫ f) =
-    (partialRightAdjoint i q).map g ≫ homEquiv i q f := by
-  unfold polynomial.homEquiv
+    (leftAdjoint i q).map g ≫ homEquiv i q f := by
+  unfold homEquiv
   simp only [Functor.comp_obj, Equiv.trans_def, Equiv.trans_apply]
   erw [pushforward.homEquiv_comp, pullback.homEquiv_comp]
   rfl
 
-lemma polynomial.homEquiv_map_comp {X : Over S''} {Y Y' : P.Over ⊤ S'}
-    (f : X ⟶ ((polynomial i q).obj Y).toComma) (g : Y ⟶ Y') :
-    homEquiv i q (f ≫ Comma.Hom.hom ((polynomial i q).map g)) =
+lemma homEquiv_map_comp {X : Over S''} {Y Y' : P.Over ⊤ S'}
+    (f : X ⟶ ((partialRightAdjoint i q).obj Y).toComma) (g : Y ⟶ Y') :
+    homEquiv i q (f ≫ Comma.Hom.hom ((partialRightAdjoint i q).map g)) =
     homEquiv i q f ≫ Comma.Hom.hom g := by
-  unfold polynomial.homEquiv
+  unfold homEquiv
   simp only [Functor.comp_obj, Equiv.trans_def, Equiv.trans_apply]
   erw [pushforward.homEquiv_map_comp, pullback.homEquiv_map_comp]
   rfl
 
-lemma polynomial.homEquiv_symm_comp {X : Over S''} {Y Y' : P.Over ⊤ S'}
-    (f : (partialRightAdjoint i q).obj X ⟶ Y.toComma) (g : Y ⟶ Y') :
-    (homEquiv i q).symm f ≫ Comma.Hom.hom ((polynomial i q).map g) =
+lemma homEquiv_symm_comp {X : Over S''} {Y Y' : P.Over ⊤ S'}
+    (f : (leftAdjoint i q).obj X ⟶ Y.toComma) (g : Y ⟶ Y') :
+    (homEquiv i q).symm f ≫ Comma.Hom.hom ((partialRightAdjoint i q).map g) =
     (homEquiv i q).symm (f ≫ Comma.Hom.hom g) := by
-  unfold polynomial.homEquiv
+  unfold homEquiv
   simp
   erw [pushforward.homEquiv_symm_comp, pullback.homEquiv_symm_comp]
   rfl
 
-lemma polynomial.homEquiv_comp_symm {X X' : Over S''} {Y : P.Over ⊤ S'}
-    (f : (partialRightAdjoint i q).obj X' ⟶ Y.toComma) (g : X ⟶ X') :
+lemma homEquiv_comp_symm {X X' : Over S''} {Y : P.Over ⊤ S'}
+    (f : (leftAdjoint i q).obj X' ⟶ Y.toComma) (g : X ⟶ X') :
     g ≫ (homEquiv i q).symm f =
-    (homEquiv i q).symm ((partialRightAdjoint i q).map g ≫ f) := by
-  unfold polynomial.homEquiv
+    (homEquiv i q).symm ((leftAdjoint i q).map g ≫ f) := by
+  unfold homEquiv
   simp
   erw [pushforward.homEquiv_comp_symm, pullback.homEquiv_comp_symm]
   rfl
 
-def polynomial.counit :
-    polynomial i q ⋙ Over.forget P ⊤ S'' ⋙ partialRightAdjoint i q ⟶ Over.forget P ⊤ S' where
-  app _ := polynomial.homEquiv i q (𝟙 _)
+def counit :
+    partialRightAdjoint i q ⋙ Over.forget P ⊤ S'' ⋙ leftAdjoint i q ⟶ Over.forget P ⊤ S' where
+  app _ := homEquiv i q (𝟙 _)
   naturality X Y f := by
-    apply (polynomial.homEquiv i q).symm.injective
-    conv => left; erw [← polynomial.homEquiv_comp_symm]
-    conv => right; erw [← polynomial.homEquiv_symm_comp]
+    apply (homEquiv i q).symm.injective
+    conv => left; erw [← homEquiv_comp_symm]
+    conv => right; erw [← homEquiv_symm_comp]
     simp
+
+end PolynomialPartialAdjunction
 
 end homEquiv
 

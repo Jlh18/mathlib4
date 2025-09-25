@@ -78,7 +78,7 @@ end MorphismProperty
 
 open MorphismProperty.Over
 
-/-- `P : MvPoly C` is a multivariate polynomial functor
+/-- `P : MvPoly R H I O` is a multivariate polynomial functor consisting of the following maps
          p
       E ---> B
   i ↙         ↘ o
@@ -103,7 +103,7 @@ This will typically be used with the following instances
 
 - For pullback of `R`-maps along `i`, `p` and `o` we need
   `[R.IsStableUnderBaseChange] [R.HasPullbacks]`
-- For the left adjoint to pullback for `o` and `i` we need `[R.IsStableUnderComposition]`
+- For the left adjoint to pullback for `o` we need `[R.IsStableUnderComposition]`
 - For pushforward of `R`-maps along `p` we need
   `[R.IsStableUnderPushforward H] [R.HasPushforwards H]`
 - For pushforward of `R`-maps along `p` we also assume `[H.HasPullbacks]`.
@@ -124,7 +124,7 @@ This will typically be used with the following instances
 -/
 structure MvPoly (R : MorphismProperty C) (H : MorphismProperty C) (I O : C) where
   (E B : C)
-  (i : E ⟶ I)
+  (i : E ⟶(R) I)
   (p : E ⟶(H) B)
   (o : B ⟶(R) O)
 
@@ -144,7 +144,7 @@ variable {I O : C} (P : MvPoly R H I O) [R.HasPullbacks] [R.IsStableUnderBaseCha
     [R.IsStableUnderPushforward H]
 
 def functor : R.Over ⊤ I ⥤ R.Over ⊤ O :=
-  pullback R ⊤ P.i ⋙ MorphismProperty.pushforward R P.p ⋙ map ⊤ P.o.2
+  pullback R ⊤ P.i.1 ⋙ MorphismProperty.pushforward R P.p ⋙ map ⊤ P.o.2
 
 /-- The action of a univariate polynomial on objects. -/
 def apply (P : MvPoly R H I O) : R.Over ⊤ I → R.Over ⊤ O := (functor P).obj
@@ -152,32 +152,18 @@ def apply (P : MvPoly R H I O) : R.Over ⊤ I → R.Over ⊤ O := (functor P).ob
 @[inherit_doc]
 infix:90 " @ " => apply
 
+open PolynomialPartialAdjunction
+
 /-- (Ignoring the indexing from `i` and `o`)
 This is the first projection morphism from `P @ X = ∑ b : B, X ^ (E b)` to `B`,
 as an object in the `P`-restricted slice over `B`. -/
-abbrev fstProj' (P : MvPoly R H I O) (X : R.Over ⊤ I) : R.Over ⊤ P.B :=
-  (polynomial P.i P.p).obj X
-
-/-- This is the first projection morphism from `P @ X = ∑ b : B, X ^ (E b)` to `B`,
-as a morphism in the `P`-restricted slice over `O`. -/
-def fstProj (P : MvPoly R H I O) (X : R.Over ⊤ I) :
-    P @ X ⟶ Over.ofMorphismProperty P.o :=
-  Over.homOfMorphismProperty (fstProj' P X) P.o
+abbrev fstProj (P : MvPoly R H I O) (X : R.Over ⊤ I) : R.Over ⊤ P.B :=
+  (partialRightAdjoint P.i.1 P.p).obj X
 
 @[reassoc (attr := simp)]
 lemma map_fstProj (P : MvPoly R H I O) {X Y : R.Over ⊤ I} (f : X ⟶ Y) :
-    (functor P).map f ≫ fstProj P Y = fstProj P X := by
-  ext
-  simp [fstProj, functor]
-
--- /--
--- The two right adjoints compose to give a new right adjoint
--- `pullback R P.i.1 ⋙ pushforward R P.p.1 P.exp`.
--- `rightAdjunction` is said adjunction `pullback p ⋙ map i ⊣ pullback i ⋙ pushforward p`.
--- -/
--- def rightAdjunction : pullback R ⊤ P.p.1 ⋙ map ⊤ P.i.2
---     ⊣ pullback R ⊤ P.i.1 ⋙ MorphismProperty.pushforward R P.p :=
---   (R.pullbackPushforwardAdjunction H P.p).comp (mapPullbackAdj R ⊤ P.i.fst _ trivial)
+    ((partialRightAdjoint P.i.1 P.p).map f).left ≫ (fstProj P Y).hom = (fstProj P X).hom := by
+  simp
 
 /-- The counit of the adjunction `pullback p ⋙ map i ⊣ pullback i ⋙ pushforward p` evaluated at `X`.
 Ignoring the indexing from `i` and `o`,
@@ -185,34 +171,108 @@ this can be viewed as the second projection morphism from `P @ X = ∑ b : B, X 
 to `X^ (E b)`.
 -/
 def sndProj (P : MvPoly R H I O) (X : R.Over ⊤ I) :
-    (polynomial.partialRightAdjoint P.i P.p).obj (fstProj' P X).toComma ⟶ X.toComma :=
-  polynomial.counit P.i P.p X
+    (leftAdjoint P.i.1 P.p).obj (fstProj P X).toComma ⟶ X.toComma :=
+  (counit P.i.1 P.p).app X
 
 namespace Equiv
 
-variable {P : MvPoly R H I O E B}
+variable {P : MvPoly R H I O} {Γ : Over O} {X : R.Over ⊤ I}
 
-def fst {Γ} {X} (pair : Γ ⟶ P @X) : Over B := Over.mk (pair ≫ fstProj P X).left
+def fst (pair : Γ ⟶ (P @ X).toComma) : Over P.B := Over.mk (pair.left ≫ (fstProj P X).hom)
 
--- def snd {Γ} {X} (pair : Γ ⟶ P @X) :
+abbrev sndDom (pair : Γ ⟶ (P @ X).toComma) : Over I := (leftAdjoint P.i.1 P.p).obj (fst pair)
+
+def snd (pair : Γ ⟶ (P @ X).toComma) : sndDom pair ⟶ X.toComma :=
+  homEquiv P.i.1 P.p (Over.homMk (pair.left))
+
+lemma snd_eq (pair : Γ ⟶ (P @ X).toComma) : snd pair =
+    (leftAdjoint P.i.1 P.p).map (Over.homMk (pair.left)) ≫ sndProj P X := by
+  erw [Equiv.apply_eq_iff_eq_symm_apply, ← homEquiv_comp_symm]
+  simp [sndProj, counit]
+
+def mk (f : Over P.B) (hf : Γ = (Over.map P.o.1).obj f)
+    (s : (leftAdjoint P.i.1 P.p).obj f ⟶ X.toComma) :
+    Γ ⟶ (P @ X).toComma :=
+  eqToHom hf ≫ (Over.map P.o.fst).map ((homEquiv P.i.1 P.p).symm s)
+
+@[simp]
+lemma fst_mk (f : Over P.B) (hf : Γ = (Over.map P.o.1).obj f)
+    (s : (leftAdjoint P.i.1 P.p).obj f ⟶ X.toComma) : fst (mk f hf s) = f := by
+  subst hf; simp [fst, mk]; rfl
+
+lemma snd_mk (f : Over P.B) (hf : Γ = (Over.map P.o.1).obj f)
+    (s : (leftAdjoint P.i.1 P.p).obj f ⟶ X.toComma) : snd (mk f hf s) =
+    eqToHom (by simp) ≫ s := calc snd (mk f hf s)
+  _ = (leftAdjoint P.i.1 P.p).map (eqToHom (fst_mk f hf s)) ≫ s := by
+    erw [Equiv.apply_eq_iff_eq_symm_apply, ← homEquiv_comp_symm]
+    ext
+    simp [mk]
+  _ = eqToHom _ ≫ s := by
+    simp only [eqToHom_map]
+
+@[simp]
+lemma map_fst (pair : Γ ⟶ (P @ X).toComma) : (Over.map P.o.fst).obj (fst pair) = Γ := by
+  have := pair.w
+  simp only [Functor.id_obj, Functor.const_obj_obj, Functor.id_map,
+    CostructuredArrow.right_eq_id, Functor.const_obj_map, comp_id] at this
+  simp [Over.map, Comma.mapRight, fst]
+  congr
+
+@[simp]
+lemma eta (pair : Γ ⟶ (P @ X).toComma) : mk (fst pair) (by simp) (snd pair) = pair := by
+  ext
+  simp [mk, snd]
 
 end Equiv
 
-#exit
-instance {I O E B : C} (P : MvPoly R H I O E B) : Limits.PreservesLimitsOfShape WalkingCospan
+instance (P : MvPoly R H I O) : Limits.PreservesLimitsOfShape WalkingCospan
     (MorphismProperty.Over.map ⊤ P.o.2) := by sorry
 
-instance {I O E B : C} (P : MvPoly R H I O E B) :
+instance (P : MvPoly R H I O) :
     Limits.PreservesLimitsOfShape WalkingCospan (MvPoly.functor P) := by
   dsimp [functor]
+  have : (MorphismProperty.Over.pullback R ⊤ P.i.1).IsRightAdjoint :=
+    Adjunction.isRightAdjoint (MorphismProperty.Over.mapPullbackAdj R ⊤ P.i.1 P.i.2 trivial)
   infer_instance
 
 end MvPoly
 
-structure UvPoly (R : MorphismProperty C) [R.HasPullbacks] [R.IsStableUnderBaseChange]
-    (E B : C) where
+/-- `P : UvPoly R E B` is the type of signatures for polynomial functors
+         p
+      E ---> B
+
+We read this as `∑ b : B, X ^ (E b)`,
+for some `R`-object `X` (meaning the unique map to the terminal object is in `R`).
+
+This notion of polynomial makes sense when `R` is a π-clan,
+[see Joyal, def 2.4.1](https://arxiv.org/pdf/1710.10238).
+Therefore it will typically be used with the following instances
+
+- For pullback of `R`-maps along `p` we need
+  `[R.IsStableUnderBaseChange] [R.HasPullbacks]`
+- For the left adjoint to pullback along `B`, we assume `[R.IsStableUnderComposition]`
+  and `[R.HasObjects]`, meaning the unique map `B ⟶ ⊤_ C` is in `R`.
+  For this, we will also assume `[HasTerminal C]`.
+- For pushforward of `R`-maps along `p` we need
+  `[R.IsStableUnderPushforward R] [R.HasPushforwards R]`
+- For pushforward of `R`-maps along `p` we also assume `[R.HasPullbacks]`.
+  This is useful - it makes the `R`-restricted pushforward of `R`-maps along `p`
+  a partial left adjoint to *global* pullback along `p`,
+  ```
+        pushforward p
+   R.Over E -----> R.Over B
+      |              |
+      |       ⊥      |
+      |              |
+      V              V
+     C/E <--------- C/B
+         pullback p
+  ```
+  which is strictly stronger than just having a left adjoint to `R`-restricted pullback
+  `(pullback : R.Over B ⥤ R.Over E) ⊣ (pushforward : R.Over E ⥤ R.Over B)`.
+-/
+structure UvPoly (R : MorphismProperty C) (E B : C) where
   (p : E ⟶(R) B)
-  (exp : (MorphismProperty.Over.pullback R ⊤ p.1).IsLeftAdjoint := by infer_instance)
 
 namespace UvPoly
 
@@ -223,19 +283,19 @@ variable {R : MorphismProperty C} {E B : C}
 variable [HasTerminal C]
 
 variable [R.IsStableUnderComposition] [R.HasPullbacks] [R.IsStableUnderBaseChange] [R.HasObjects]
-
-/-- Given a π-clan `R`, any `R`-map is a signature for a polynomial functor. -/
-def ofIsClosedUnderPushforward [R.IsClosedUnderPushforward] (p : E ⟶(R) B) : UvPoly R E B where
-  p := p
-  exp := IsClosedUnderPushforward.pullback_isLeftAdjoint p
+  [R.IsStableUnderPushforward R] [R.HasPushforwards R]
 
 def object (X : C) : X ⟶(R) ⊤_ C :=
   ⟨terminal.from X, HasObjects.obj_mem _ terminalIsTerminal⟩
 
-def mvPoly (P : UvPoly R E B) : MvPoly R (⊤_ C) (⊤_ C) E B where
+abbrev toOverTerminal : C ⥤ R.Over ⊤ (⊤_ C) :=
+  (equivalenceOfHasObjects R terminalIsTerminal).inverse
+
+def mvPoly (P : UvPoly R E B) : MvPoly R R (⊤_ C) (⊤_ C) where
+  E := E
+  B := B
   i := object E
   p := P.p
-  exp := P.exp
   o := object B
 
 def functor (P : UvPoly R E B) : C ⥤ C :=
@@ -264,14 +324,70 @@ variable {B}
 
 /-- The fstProjection morphism from `∑ b : B, X ^ (E b)` to `B` again. -/
 def fstProj (P : UvPoly R E B) (X : C) : P @ X ⟶ B :=
-  (equivalenceOfHasObjects R terminalIsTerminal).functor.map <|
-    P.mvPoly.fstProj ((equivalenceOfHasObjects R terminalIsTerminal).inverse.obj X)
+  (P.mvPoly.fstProj ((equivalenceOfHasObjects R terminalIsTerminal).inverse.obj X)).hom
 
 @[reassoc (attr := simp)]
 lemma map_fstProj (P : UvPoly R E B) {X Y : C} (f : X ⟶ Y) :
-    P.functor.map f ≫ fstProj P Y = fstProj P X := by
-  simp only [fstProj, functor, Functor.comp_map, ← Functor.map_comp]
-  simp
+    P.functor.map f ≫ fstProj P Y = fstProj P X :=
+  P.mvPoly.map_fstProj ((equivalenceOfHasObjects R terminalIsTerminal).inverse.map f)
+
+/-- The second projection morphism from `P @ X = ∑ b : B, X ^ (E b)` to `X^ (E b)`. -/
+def sndProj (P : UvPoly R E B) (X : C) :
+    Limits.pullback (fstProj P X) P.p.1 ⟶ X :=
+  have h := P.mvPoly.sndProj
+  sorry
+
+#exit
+namespace Equiv
+
+variable {P : MvPoly R H I O} {Γ : Over O} {X : R.Over ⊤ I}
+
+def fst (pair : Γ ⟶ (P @ X).toComma) : Over P.B := Over.mk (pair.left ≫ (fstProj P X).hom)
+
+abbrev sndDom (pair : Γ ⟶ (P @ X).toComma) : Over I := (leftAdjoint P.i.1 P.p).obj (fst pair)
+
+def snd (pair : Γ ⟶ (P @ X).toComma) : sndDom pair ⟶ X.toComma :=
+  homEquiv P.i.1 P.p (Over.homMk (pair.left))
+
+lemma snd_eq (pair : Γ ⟶ (P @ X).toComma) : snd pair =
+    (leftAdjoint P.i.1 P.p).map (Over.homMk (pair.left)) ≫ sndProj P X := by
+  erw [Equiv.apply_eq_iff_eq_symm_apply, ← homEquiv_comp_symm]
+  simp [sndProj, counit]
+
+def mk (f : Over P.B) (hf : Γ = (Over.map P.o.1).obj f)
+    (s : (leftAdjoint P.i.1 P.p).obj f ⟶ X.toComma) :
+    Γ ⟶ (P @ X).toComma :=
+  eqToHom hf ≫ (Over.map P.o.fst).map ((homEquiv P.i.1 P.p).symm s)
+
+@[simp]
+lemma fst_mk (f : Over P.B) (hf : Γ = (Over.map P.o.1).obj f)
+    (s : (leftAdjoint P.i.1 P.p).obj f ⟶ X.toComma) : fst (mk f hf s) = f := by
+  subst hf; simp [fst, mk]; rfl
+
+lemma snd_mk (f : Over P.B) (hf : Γ = (Over.map P.o.1).obj f)
+    (s : (leftAdjoint P.i.1 P.p).obj f ⟶ X.toComma) : snd (mk f hf s) =
+    eqToHom (by simp) ≫ s := calc snd (mk f hf s)
+  _ = (leftAdjoint P.i.1 P.p).map (eqToHom (fst_mk f hf s)) ≫ s := by
+    erw [Equiv.apply_eq_iff_eq_symm_apply, ← homEquiv_comp_symm]
+    ext
+    simp [mk]
+  _ = eqToHom _ ≫ s := by
+    simp only [eqToHom_map]
+
+@[simp]
+lemma map_fst (pair : Γ ⟶ (P @ X).toComma) : (Over.map P.o.fst).obj (fst pair) = Γ := by
+  have := pair.w
+  simp only [Functor.id_obj, Functor.const_obj_obj, Functor.id_map,
+    CostructuredArrow.right_eq_id, Functor.const_obj_map, comp_id] at this
+  simp [Over.map, Comma.mapRight, fst]
+  congr
+
+@[simp]
+lemma eta (pair : Γ ⟶ (P @ X).toComma) : mk (fst pair) (by simp) (snd pair) = pair := by
+  ext
+  simp [mk, snd]
+
+end Equiv
 
 open TwoSquare
 
@@ -390,116 +506,13 @@ open UvPoly
 
 variable {E B : C}
 
-namespace PartialProduct
-
-open PartialProduct
-
-#exit
-/-- The counit of the adjunction `pullback P.p ⊣ pushforward P.p` evaluated `(star E).obj X`. -/
-def ε (P : UvPoly R E B) (X : C) : Limits.pullback P.p.1 (P.fstProj X) ⟶ E ⨯ X :=
-  ((ev P.p).app ((star E).obj X)).left
-
-/-- The partial product fan associated to a polynomial `P : UvPoly E B` and an object `X : C`. -/
-@[simps -isSimp]
-def fan (P : UvPoly E B) (X : C) : Fan P.p X where
-  pt := P @ X
-  fst := P.fstProj X
-  snd := ε P X ≫ prod.snd -- ((forgetAdjStar E).counit).app X
-
-attribute [simp] fan_pt fan_fst
-
-/--
-`P.PartialProduct.fan` is in fact a limit fan; this provides the univeral mapping property of the
-polynomial functor.
--/
-def isLimitFan (P : UvPoly E B) (X : C) : IsLimit (fan P X) where
-  lift c := (pushforwardCurry <| overPullbackToStar c.fst c.snd).left
-  fac_left := by aesop_cat (add norm fstProj)
-  fac_right := by
-    intro c
-    simp only [fan_snd, pullbackMap, ε, ev, ← assoc, ← comp_left]
-    simp_rw [homMk_eta]
-    erw [← homEquiv_counit]
-    simp [← ExponentiableMorphism.homEquiv_apply_eq, overPullbackToStar_prod_snd]
-  uniq := by
-    intro c m h_left h_right
-    dsimp [pushforwardCurry]
-    symm
-    rw [← homMk_left m (U := Over.mk c.fst) (V := Over.mk (P.fstProj X))]
-    congr 1
-    apply (Adjunction.homEquiv_apply_eq (adj P.p) (overPullbackToStar c.fst c.snd) (Over.homMk m)).mpr
-    simp [overPullbackToStar, Fan.overPullbackToStar, Fan.over]
-    apply (Adjunction.homEquiv_apply_eq _ _ _).mpr
-    rw [← h_right]
-    simp [forgetAdjStar, comp_homEquiv, Comonad.adj]
-    simp [Equivalence.toAdjunction, homEquiv]
-    simp [coalgebraEquivOver, Equivalence.symm]; rfl
-
-end PartialProduct
-
-open PartialProduct
-
-/-- Morphisms `b : Γ ⟶ B` and `e : pullback b P.p ⟶ X` induce a morphism `Γ ⟶ P @ X` which is the
-lift of the partial product fan. -/
--- used to be called `pairPoly`
-abbrev lift {Γ X : C} (P : UvPoly E B) (b : Γ ⟶ B) (e : pullback b P.p ⟶ X) :
-    Γ ⟶ P @ X :=
-  partialProd.lift ⟨fan P X, isLimitFan P X⟩ b e
-
-@[simp]
-theorem lift_fst {Γ X : C} {P : UvPoly E B} {b : Γ ⟶ B} {e : pullback b P.p ⟶ X} :
-    P.lift b e ≫ P.fstProj X = b := partialProd.lift_fst ..
-
-@[reassoc]
-theorem lift_snd {Γ X : C} {P : UvPoly E B} {b : Γ ⟶ B} {e : pullback b P.p ⟶ X} :
-    comparison (c := fan P X) (P.lift b e) ≫ (fan P X).snd =
-    (pullback.congrHom (partialProd.lift_fst b e) rfl).hom ≫ e := partialProd.lift_snd ..
-
-theorem hom_ext {Γ X : C} {P : UvPoly E B} {f g : Γ ⟶ P @ X}
-    (h₁ : f ≫ P.fstProj X = g ≫ P.fstProj X)
-    (h₂ : comparison f ≫ (fan P X).snd =
-      (pullback.congrHom (by exact h₁) rfl).hom ≫ comparison g ≫ (fan P X).snd) :
-    f = g := partialProd.hom_ext ⟨fan P X, isLimitFan P X⟩ h₁ h₂
-
-/-- A morphism `f : Γ ⟶ P @ X` projects to a morphism `b : Γ ⟶ B` and a morphism
-`e : pullback b P.p ⟶ X`. -/
--- formerly `polyPair`
-def proj {Γ X : C} (P : UvPoly E B) (f : Γ ⟶ P @ X) :
-    Σ b : Γ ⟶ B, pullback b P.p ⟶ X :=
-  ⟨fan P X |>.extend f |>.fst, fan P X |>.extend f |>.snd⟩
-
-@[simp]
-theorem proj_fst {Γ X : C} {P : UvPoly E B} {f : Γ ⟶ P @ X} :
-    (proj P f).fst = f ≫ P.fstProj X := rfl
-
-/-- The second component of `proj` is a comparison map of pullbacks composed with `ε P X ≫ prod.snd` -/
--- formerly `polyPair_snd_eq_comp_u₂'`
-@[simp]
-theorem proj_snd {Γ X : C} {P : UvPoly E B} {f : Γ ⟶ P @ X} :
-    (proj P f).snd = pullback.map _ _ _ _ f (𝟙 E) (𝟙 B) (by simp) (by simp) ≫ (fan P X).snd := by
-  simp [proj]
 
 /-- The domain of the composition of two polynomials. See `UvPoly.comp`. -/
-def compDom {E B D A : C} (P : UvPoly E B) (Q : UvPoly D A) :=
-  Limits.pullback Q.p (fan P A).snd
+def compDom {E B E' B' : C} (P : UvPoly R E B) (P' : UvPoly R E' B') : C :=
+  sorry
+  -- Limits.pullback P'.p (fan P A).snd
 
 @[simps!]
-def comp [HasPullbacks C] [HasTerminal C]
-    {E B D A : C} (P : UvPoly E B) (Q : UvPoly D A) : UvPoly (compDom P Q) (P @ A) where
-  p := pullback.snd Q.p (fan P A).snd ≫ pullback.fst (fan P A).fst P.p
-  exp := sorry
-
-/-- The associated functor of the composition of two polynomials is isomorphic to the composition of the associated functors. -/
-def compFunctorIso [HasPullbacks C] [HasTerminal C]
-    {E B D C : C} (P : UvPoly E B) (Q : UvPoly D C) :
-    P.functor ⋙ Q.functor ≅ (comp P Q).functor := by
-  sorry
-
-instance monoidal [HasPullbacks C] [HasTerminal C] : MonoidalCategory (UvPoly.Total C) where
-  tensorObj X Y := ⟨comp X.poly Y.poly⟩
-  whiskerLeft X Y₁ Y₂ := sorry
-  whiskerRight := sorry
-  tensorUnit := sorry
-  associator := sorry
-  leftUnitor := sorry
-  rightUnitor := sorry
+def comp {E B E' B' : C} (P : UvPoly R E B) (P' : UvPoly R E' B') :
+    UvPoly R (compDom P P') (P @ B') where
+  p := sorry -- pullback.snd Q.p (fan P A).snd ≫ pullback.fst (fan P A).fst P.p
